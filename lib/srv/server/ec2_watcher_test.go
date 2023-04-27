@@ -224,13 +224,13 @@ func TestEC2Watcher(t *testing.T) {
 	result := <-watcher.InstancesC
 	require.Equal(t, EC2Instances{
 		Region:     "us-west-2",
-		Instances:  []*ec2.Instance{&present},
+		Instances:  []EC2Instance{toEC2Instance(&present)},
 		Parameters: map[string]string{"token": "", "scriptName": ""},
 	}, *result.EC2Instances)
 	result = <-watcher.InstancesC
 	require.Equal(t, EC2Instances{
 		Region:     "us-west-2",
-		Instances:  []*ec2.Instance{&presentOther},
+		Instances:  []EC2Instance{toEC2Instance(&presentOther)},
 		Parameters: map[string]string{"token": "", "scriptName": ""},
 	}, *result.EC2Instances)
 }

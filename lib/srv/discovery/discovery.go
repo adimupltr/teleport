@@ -26,7 +26,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -113,6 +112,8 @@ type Server struct {
 
 	// ec2Watcher periodically retrieves EC2 instances.
 	ec2Watcher *server.Watcher
+	// agentlessEC2Watcher periodically retrieves EC2 instances.
+	agentlessEC2Watcher *server.Watcher
 	// ec2Installer is used to start the installation process on discovered EC2 nodes
 	ec2Installer *server.SSMInstaller
 	// azureWatcher periodically retrieves Azure virtual machines.
@@ -124,6 +125,10 @@ type Server struct {
 	kubeFetchers []common.Fetcher
 	// databaseFetchers holds all database fetchers.
 	databaseFetchers []common.Fetcher
+	// rotationEventListener notifies the agentless watcher when a
+	// host or openssh ca has a rotation so it can run a rotation on
+	// agentless nodes.
+	rotationEventListener chan struct{}
 }
 
 // New initializes a discovery Server
@@ -151,7 +156,7 @@ func New(ctx context.Context, cfg *Config) (*Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	if s.ec2Watcher != nil || s.azureWatcher != nil {
+	if s.ec2Watcher != nil || s.azureWatcher != nil || s.agentlessEC2Watcher != nil {
 		if err := s.initTeleportNodeWatcher(); err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -170,6 +175,16 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 	var err error
 	if len(ec2Matchers) > 0 {
 		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := s.initTeleportNodeWatcher(); err != nil {
+			return trace.Wrap(err)
+		}
+
+		s.rotationEventListener = make(chan struct{})
+		s.agentlessEC2Watcher, err = server.NewEC2AgentlessWatcher(s.ctx, s.rotationEventListener, matchers, s.Clients, s.nodeWatcher, s.AccessPoint)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -330,13 +345,13 @@ func (s *Server) filterExistingEC2Nodes(instances *server.EC2Instances) {
 		return accountOK && instanceOK
 	})
 
-	var filtered []*ec2.Instance
+	var filtered []server.EC2Instance
 outer:
 	for _, inst := range instances.Instances {
 		for _, node := range nodes {
 			match := types.MatchLabels(node, map[string]string{
 				types.AWSAccountIDLabel:  instances.AccountID,
-				types.AWSInstanceIDLabel: aws.StringValue(inst.InstanceId),
+				types.AWSInstanceIDLabel: inst.InstanceID,
 			})
 			if match {
 				continue outer
@@ -347,9 +362,9 @@ outer:
 	instances.Instances = filtered
 }
 
-func genEC2InstancesLogStr(instances []*ec2.Instance) string {
-	return genInstancesLogStr(instances, func(i *ec2.Instance) string {
-		return aws.StringValue(i.InstanceId)
+func genEC2InstancesLogStr(instances []server.EC2Instance) string {
+	return genInstancesLogStr(instances, func(i server.EC2Instance) string {
+		return i.InstanceID
 	})
 }
 
@@ -376,9 +391,6 @@ func genInstancesLogStr[T any](instances []T, getID func(T) string) string {
 }
 
 func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
-	// TODO(amk): once agentless node inventory management is
-	//            implemented, create nodes after a successful SSM run
-
 	// TODO(gavin): support assume_role_arn for ec2.
 	ec2Client, err := s.Clients.GetAWSSSMClient(s.ctx, instances.Region)
 	if err != nil {
@@ -403,6 +415,17 @@ func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
 	return trace.Wrap(s.ec2Installer.Run(s.ctx, req))
 }
 
+func (s *Server) logHandleInstancesErr(err error) {
+	var aErr awserr.Error
+	if errors.As(err, &aErr) && aErr.Code() == ssm.ErrCodeInvalidInstanceId {
+		s.Log.WithError(err).Error("SSM SendCommand failed with ErrCodeInvalidInstanceId. Make sure that the instances have AmazonSSMManagedInstanceCore policy assigned. Also check that SSM agent is running and registered with the SSM endpoint on that instance and try restarting or reinstalling it in case of issues. See https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_SendCommand.html#API_SendCommand_Errors for more details.")
+	} else if trace.IsNotFound(err) {
+		s.Log.Debug("All discovered EC2 instances are already part of the cluster.")
+	} else {
+		s.Log.WithError(err).Error("Failed to enroll discovered EC2 instances.")
+	}
+}
+
 func (s *Server) handleEC2Discovery() {
 	if err := s.nodeWatcher.WaitInitialization(); err != nil {
 		s.Log.WithError(err).Error("Failed to initialize nodeWatcher.")
@@ -410,22 +433,25 @@ func (s *Server) handleEC2Discovery() {
 	}
 
 	go s.ec2Watcher.Run()
+	go s.agentlessEC2Watcher.Run()
+	go s.watchCARotations(s.ctx)
+
 	for {
 		select {
+		case instances := <-s.agentlessEC2Watcher.InstancesC:
+			ec2Instances := instances.EC2Instances
+			s.Log.Debugf("EC2 instances discovered (AccountID: %s, Instances: %v), starting agentless installation",
+				instances.AccountID, genEC2InstancesLogStr(ec2Instances.Instances))
+			if err := s.handleEC2Instances(ec2Instances); err != nil {
+				s.logHandleInstancesErr(err)
+			}
 		case instances := <-s.ec2Watcher.InstancesC:
 			ec2Instances := instances.EC2Instances
 			s.Log.Debugf("EC2 instances discovered (AccountID: %s, Instances: %v), starting installation",
 				instances.AccountID, genEC2InstancesLogStr(ec2Instances.Instances))
 
 			if err := s.handleEC2Instances(ec2Instances); err != nil {
-				var aErr awserr.Error
-				if errors.As(err, &aErr) && aErr.Code() == ssm.ErrCodeInvalidInstanceId {
-					s.Log.WithError(err).Error("SSM SendCommand failed with ErrCodeInvalidInstanceId. Make sure that the instances have AmazonSSMManagedInstanceCore policy assigned. Also check that SSM agent is running and registered with the SSM endpoint on that instance and try restarting or reinstalling it in case of issues. See https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_SendCommand.html#API_SendCommand_Errors for more details.")
-				} else if trace.IsNotFound(err) {
-					s.Log.Debug("All discovered EC2 instances are already part of the cluster.")
-				} else {
-					s.Log.WithError(err).Error("Failed to enroll discovered EC2 instances.")
-				}
+				s.logHandleInstancesErr(err)
 			}
 		case <-s.ctx.Done():
 			s.ec2Watcher.Stop()
@@ -554,6 +580,86 @@ func (s *Server) Wait() error {
 	return nil
 }
 
+func (s *Server) watchCARotations(ctx context.Context) {
+	clustername, err := s.AccessPoint.GetClusterName()
+	if err != nil {
+		s.Log.Error(err)
+		return
+	}
+
+	watcher, err := s.AccessPoint.NewWatcher(ctx, types.Watch{
+		Kinds: []types.WatchKind{{
+			Kind: types.KindCertAuthority,
+			Filter: types.CertAuthorityFilter{
+				types.OpenSSHCA: clustername.GetName(),
+				types.HostCA:    clustername.GetName(),
+			}.IntoMap()}},
+	})
+	if err != nil {
+		s.Log.Error(err)
+		return
+	}
+
+	for event := range watcher.Events() {
+		if event.Type == types.OpInit {
+			s.Log.Infof("Started watching for CA rotations")
+			break
+		}
+	}
+
+	for {
+		select {
+		case event := <-watcher.Events():
+			if event.Type == types.OpInit {
+				s.Log.Infof("Started watching for CA rotations")
+				continue
+			}
+
+			if event.Type != types.OpPut {
+				continue
+			}
+			ca, ok := event.Resource.(types.CertAuthority)
+			if !ok {
+				s.Log.Debugf("event resource was not CertAuthority (%T)", event.Resource)
+				continue
+			}
+			// We want to update for all phases but init and update_servers
+			phase := ca.GetRotation().Phase
+			if !slices.Contains([]string{
+				"", types.RotationPhaseUpdateServers, types.RotationPhaseRollback, types.RotationPhaseStandby,
+			}, phase) {
+				s.Log.Debugf("skipping due to phase '%s'", phase)
+				continue
+			}
+
+			// Skip anything not from our cluster
+			if ca.GetClusterName() != clustername.GetName() {
+				s.Log.Debugf("skipping due to cluster name of CA: was '%s', wanted '%s'", ca.GetClusterName(), clustername.GetName())
+				continue
+			}
+
+			// We want to skip anything that is not host or openssh
+			if !slices.Contains([]string{
+				string(types.OpenSSHCA),
+				string(types.HostCA),
+			}, ca.GetSubKind()) {
+				continue
+			}
+			// tell the agentless watcher a rotation has happened and
+			// to send rotation commands to agentless nodes
+			s.rotationEventListener <- struct{}{}
+
+		case <-watcher.Done():
+			if err := watcher.Error(); err != nil {
+				s.Log.Error(err)
+			}
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (s *Server) getAzureSubscriptions(ctx context.Context, subs []string) ([]string, error) {
 	subscriptionIds := subs
 	if slices.Contains(subs, types.Wildcard) {
@@ -569,6 +675,9 @@ func (s *Server) getAzureSubscriptions(ctx context.Context, subs []string) ([]st
 }
 
 func (s *Server) initTeleportNodeWatcher() (err error) {
+	if s.nodeWatcher != nil {
+		return nil
+	}
 	s.nodeWatcher, err = services.NewNodeWatcher(s.ctx, services.NodeWatcherConfig{
 		ResourceWatcherConfig: services.ResourceWatcherConfig{
 			Component:    teleport.ComponentDiscovery,

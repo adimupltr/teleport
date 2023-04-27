@@ -39,7 +39,8 @@ type Fetcher interface {
 // Watcher allows callers to discover cloud instances matching specified filters.
 type Watcher struct {
 	// InstancesC can be used to consume newly discovered instances.
-	InstancesC chan Instances
+	InstancesC    chan Instances
+	rotationEvent chan struct{}
 
 	fetchers      []Fetcher
 	fetchInterval time.Duration
@@ -49,6 +50,9 @@ type Watcher struct {
 
 // Run starts the watcher's main watch loop.
 func (w *Watcher) Run() {
+	if len(w.fetchers) == 0 {
+		return
+	}
 	ticker := time.NewTicker(w.fetchInterval)
 	defer ticker.Stop()
 	for {
@@ -69,6 +73,8 @@ func (w *Watcher) Run() {
 			}
 		}
 		select {
+		case <-w.rotationEvent:
+			continue
 		case <-ticker.C:
 			continue
 		case <-w.ctx.Done():

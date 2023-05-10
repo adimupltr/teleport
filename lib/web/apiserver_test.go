@@ -6901,6 +6901,10 @@ func (mock authProviderMock) GenerateOpenSSHCert(ctx context.Context, req *authp
 	return nil, nil
 }
 
+func (mock authProviderMock) MaintainSessionPresence(ctx context.Context) (authproto.AuthService_MaintainSessionPresenceClient, error) {
+	return nil, nil
+}
+
 func (mock authProviderMock) GetUser(_ string, _ bool) (types.User, error) {
 	return nil, nil
 }

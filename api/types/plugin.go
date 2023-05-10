@@ -38,6 +38,8 @@ const (
 	PluginTypeOkta = "okta"
 	// PluginTypeJamf is the Jamf MDM plugin
 	PluginTypeJamf = "jamf"
+	// PluginTypeOpsgenie is the Opsgenie access request plugin
+	PluginTypeOpsgenie = "opsgenie"
 )
 
 // PluginSubkind represents the type of the plugin, e.g., access request, MDM etc.
@@ -126,6 +128,19 @@ func (p *PluginV1) CheckAndSetDefaults() error {
 		}
 		if (bearer.Token == "") == (bearer.TokenFile == "") {
 			return trace.BadParameter("exactly one of Token and TokenFile must be specified")
+	case *PluginSpecV1_Opsgenie:
+		// Check settings.
+		if settings.Opsgenie == nil {
+			return trace.BadParameter("settings must be set")
+		}
+		if err := settings.Opsgenie.CheckandSetDefaults; err != nil {
+			return trace.Wrap(err)
+		}
+
+		if p.Credentials == nil {
+			// TODO: after credential exchange during creation is implemented,
+			// this should validate that credentials are not empty
+			break
 		}
 	case *PluginSpecV1_Jamf:
 		if settings.Jamf.JamfSpec.ApiEndpoint == "" {
@@ -312,6 +327,14 @@ func (s *PluginOktaSettings) CheckAndSetDefaults() error {
 		return trace.BadParameter("org_url must be set")
 	}
 
+	return nil
+}
+
+// CheckAndSetDefaults validates and set the default values
+func (s *PluginOpsgenieAccessSettings) CheckAndSetDefaults() error {
+	if s.Addr == "" {
+		return trace.BadParameter("opsgenie addr must be set")
+	}
 	return nil
 }
 

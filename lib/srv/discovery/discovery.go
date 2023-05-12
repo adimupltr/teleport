@@ -112,8 +112,6 @@ type Server struct {
 
 	// ec2Watcher periodically retrieves EC2 instances.
 	ec2Watcher *server.Watcher
-	// agentlessEC2Watcher periodically retrieves EC2 instances.
-	agentlessEC2Watcher *server.Watcher
 	// ec2Installer is used to start the installation process on discovered EC2 nodes
 	ec2Installer *server.SSMInstaller
 	// azureWatcher periodically retrieves Azure virtual machines.
@@ -125,10 +123,12 @@ type Server struct {
 	kubeFetchers []common.Fetcher
 	// databaseFetchers holds all database fetchers.
 	databaseFetchers []common.Fetcher
-	// rotationEventListener notifies the agentless watcher when a
+	// rotationEvents notifies the agentless watcher when a
 	// host or openssh ca has a rotation so it can run a rotation on
 	// agentless nodes.
-	rotationEventListener chan struct{}
+	rotationEvents chan struct{}
+	// missedRotation causes a watcher to send installation commands to
+	missedRotation chan []types.Server
 }
 
 // New initializes a discovery Server
@@ -156,7 +156,7 @@ func New(ctx context.Context, cfg *Config) (*Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	if s.ec2Watcher != nil || s.azureWatcher != nil || s.agentlessEC2Watcher != nil {
+	if s.ec2Watcher != nil || s.azureWatcher != nil {
 		if err := s.initTeleportNodeWatcher(); err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -174,7 +174,9 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 	// start ec2 watchers
 	var err error
 	if len(ec2Matchers) > 0 {
-		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients)
+		s.rotationEvents = make(chan struct{})
+		s.missedRotation = make(chan []types.Server)
+		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients, s.missedRotation, s.rotationEvents)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -183,11 +185,6 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 			return trace.Wrap(err)
 		}
 
-		s.rotationEventListener = make(chan struct{})
-		s.agentlessEC2Watcher, err = server.NewEC2AgentlessWatcher(s.ctx, s.rotationEventListener, matchers, s.Clients, s.nodeWatcher, s.AccessPoint)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 		s.ec2Installer = server.NewSSMInstaller(server.SSMInstallerConfig{
 			Emitter: s.Emitter,
 		})
@@ -396,7 +393,9 @@ func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	s.filterExistingEC2Nodes(instances)
+	if !instances.Rotation {
+		s.filterExistingEC2Nodes(instances)
+	}
 	if len(instances.Instances) == 0 {
 		return trace.NotFound("all fetched nodes already enrolled")
 	}
@@ -426,6 +425,78 @@ func (s *Server) logHandleInstancesErr(err error) {
 	}
 }
 
+func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
+	ticker := time.NewTicker(time.Hour * 3)
+	for {
+		select {
+		case <-ticker.C:
+			nodes, err := s.findUnrotatedEC2Nodes(ctx)
+			if err != nil {
+				if trace.IsNotFound(err) {
+					s.Log.Debug("Failed to find any unrotated nodes")
+					continue
+				}
+				s.Log.Errorf("Error finding unrotated ec2 nodes: %s", err)
+			}
+			s.missedRotation <- nodes
+		case <-s.ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...types.CertAuthType) (*types.Rotation, error) {
+	clusterName, err := s.AccessPoint.GetClusterName()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var rotation types.Rotation
+	for _, caType := range caTypes {
+		certAuthoritys, err := s.AccessPoint.GetCertAuthorities(ctx, caType, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, ca := range certAuthoritys {
+			if ca.GetClusterName() != clusterName.GetClusterName() {
+				continue
+			}
+			if ca.GetRotation().LastRotated.After(rotation.LastRotated) {
+				rotation = ca.GetRotation()
+			}
+		}
+	}
+	return &rotation, nil
+}
+
+func (s *Server) findUnrotatedEC2Nodes(ctx context.Context) ([]types.Server, error) {
+	lastRotationForCAs, err := s.getMostRecentRotationForCAs(ctx, types.OpenSSHCA, types.HostCA)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	found := s.nodeWatcher.GetNodes(ctx, func(n services.Node) bool {
+		if n.GetSubKind() != types.SubKindOpenSSHNode {
+			return false
+		}
+		if _, ok := n.GetLabel(types.AWSAccountIDLabel); !ok {
+			return false
+		}
+		if _, ok := n.GetLabel(types.AWSInstanceIDLabel); !ok {
+			return false
+		}
+
+		if n.GetRotation().LastRotated.Before(lastRotationForCAs.LastRotated) {
+			return false
+		}
+		return true
+	})
+
+	if len(found) == 0 {
+		return nil, trace.NotFound("no unrotated nodes found")
+	}
+	return found, nil
+}
+
 func (s *Server) handleEC2Discovery() {
 	if err := s.nodeWatcher.WaitInitialization(); err != nil {
 		s.Log.WithError(err).Error("Failed to initialize nodeWatcher.")
@@ -433,18 +504,11 @@ func (s *Server) handleEC2Discovery() {
 	}
 
 	go s.ec2Watcher.Run()
-	go s.agentlessEC2Watcher.Run()
+	go s.watchUnrotatedEC2Nodes(s.ctx)
 	go s.watchCARotations(s.ctx)
 
 	for {
 		select {
-		case instances := <-s.agentlessEC2Watcher.InstancesC:
-			ec2Instances := instances.EC2Instances
-			s.Log.Debugf("EC2 instances discovered (AccountID: %s, Instances: %v), starting agentless installation",
-				instances.AccountID, genEC2InstancesLogStr(ec2Instances.Instances))
-			if err := s.handleEC2Instances(ec2Instances); err != nil {
-				s.logHandleInstancesErr(err)
-			}
 		case instances := <-s.ec2Watcher.InstancesC:
 			ec2Instances := instances.EC2Instances
 			s.Log.Debugf("EC2 instances discovered (AccountID: %s, Instances: %v), starting installation",
@@ -623,7 +687,7 @@ func (s *Server) watchCARotations(ctx context.Context) {
 				s.Log.Debugf("event resource was not CertAuthority (%T)", event.Resource)
 				continue
 			}
-			// We want to update for all phases but init and update_servers
+			// We want to update for all phases but init and update_clients
 			phase := ca.GetRotation().Phase
 			if !slices.Contains([]string{
 				"", types.RotationPhaseUpdateServers, types.RotationPhaseRollback, types.RotationPhaseStandby,
@@ -638,16 +702,15 @@ func (s *Server) watchCARotations(ctx context.Context) {
 				continue
 			}
 
-			// We want to skip anything that is not host or openssh
+			// We want to skip anything that is not openssh
 			if !slices.Contains([]string{
 				string(types.OpenSSHCA),
-				string(types.HostCA),
 			}, ca.GetSubKind()) {
 				continue
 			}
 			// tell the agentless watcher a rotation has happened and
 			// to send rotation commands to agentless nodes
-			s.rotationEventListener <- struct{}{}
+			s.rotationEvents <- struct{}{}
 
 		case <-watcher.Done():
 			if err := watcher.Error(); err != nil {

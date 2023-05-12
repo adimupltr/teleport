@@ -22,6 +22,8 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/gravitational/teleport/api/types"
 )
 
 // Instances contains information about discovered cloud instances from any provider.
@@ -33,19 +35,38 @@ type Instances struct {
 // Fetcher fetches instances from a particular cloud provider.
 type Fetcher interface {
 	// GetInstances gets a list of cloud instances.
-	GetInstances(context.Context) ([]Instances, error)
+	GetInstances(ctx context.Context, rotation bool) ([]Instances, error)
+	// GetMatchingInstances changes a list of servers to
+	GetMatchingInstances(nodes []types.Server, rotation bool) ([]Instances, error)
 }
 
 // Watcher allows callers to discover cloud instances matching specified filters.
 type Watcher struct {
 	// InstancesC can be used to consume newly discovered instances.
-	InstancesC    chan Instances
-	rotationEvent chan struct{}
+	InstancesC     chan Instances
+	missedRotation <-chan []types.Server
+	fullRotation   <-chan struct{}
 
 	fetchers      []Fetcher
 	fetchInterval time.Duration
 	ctx           context.Context
 	cancel        context.CancelFunc
+}
+
+func (w *Watcher) sendInstancesOrLogError(instancesColl []Instances, err error) {
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return
+		}
+		log.WithError(err).Error("Failed to fetch instances")
+		return
+	}
+	for _, inst := range instancesColl {
+		select {
+		case w.InstancesC <- inst:
+		case <-w.ctx.Done():
+		}
+	}
 }
 
 // Run starts the watcher's main watch loop.
@@ -57,24 +78,17 @@ func (w *Watcher) Run() {
 	defer ticker.Stop()
 	for {
 		for _, fetcher := range w.fetchers {
-			instancesColl, err := fetcher.GetInstances(w.ctx)
-			if err != nil {
-				if trace.IsNotFound(err) {
-					continue
-				}
-				log.WithError(err).Error("Failed to fetch instances")
-				continue
-			}
-			for _, inst := range instancesColl {
-				select {
-				case w.InstancesC <- inst:
-				case <-w.ctx.Done():
-				}
-			}
+			w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
 		}
 		select {
-		case <-w.rotationEvent:
-			continue
+		case insts := <-w.missedRotation:
+			for _, fetcher := range w.fetchers {
+				w.sendInstancesOrLogError(fetcher.GetMatchingInstances(insts, true))
+			}
+		case <-w.fullRotation:
+			for _, fetcher := range w.fetchers {
+				w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, true))
+			}
 		case <-ticker.C:
 			continue
 		case <-w.ctx.Done():

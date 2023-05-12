@@ -17,6 +17,7 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/session"
+	"github.com/gravitational/teleport/lib/utils"
 )
 
 func TestExecuteCommand(t *testing.T) {
@@ -47,7 +49,7 @@ func TestExecuteCommand(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, ws.Close()) })
 
-	stream := NewWStream(ws)
+	stream := NewWStream(context.Background(), ws, utils.NewLoggerForTests().WithField(trace.Component, "test"))
 
 	require.NoError(t, waitForCommandOutput(stream, "teleport"))
 }

@@ -128,6 +128,22 @@ func SliceMatchesRegex(input string, expressions []string) (bool, error) {
 	return false, nil
 }
 
+func RegexMatchesSlice(inputs []string, expression string) (bool, error) {
+	expr, err := compileRegexCached(expression)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	for _, input := range inputs {
+		// Since the expression is always surrounded by ^ and $ this is an exact
+		// match for either a plain string (for example ^hello$) or for a regexp
+		// (for example ^hel*o$).
+		if expr.MatchString(input) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // mustCache initializes a new [lru.Cache] with the provided size.
 // A panic will be triggered if the creation of the cache fails.
 func mustCache[K comparable, V any](size int) *lru.Cache[K, V] {
@@ -144,8 +160,20 @@ func mustCache[K comparable, V any](size int) *lru.Cache[K, V] {
 var exprCache = mustCache[string, *regexp.Regexp](1000)
 
 func matchString(input, expression string) (bool, error) {
+	expr, err := compileRegexCached(expression)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+
+	// Since the expression is always surrounded by ^ and $ this is an exact
+	// match for either a plain string (for example ^hello$) or for a regexp
+	// (for example ^hel*o$).
+	return expr.MatchString(input), nil
+}
+
+func compileRegexCached(expression string) (*regexp.Regexp, error) {
 	if expr, ok := exprCache.Get(expression); ok {
-		return expr.MatchString(input), nil
+		return expr, nil
 	}
 
 	original := expression
@@ -158,15 +186,11 @@ func matchString(input, expression string) (bool, error) {
 
 	expr, err := regexp.Compile(expression)
 	if err != nil {
-		return false, trace.BadParameter(err.Error())
+		return nil, trace.BadParameter(err.Error())
 	}
 
 	exprCache.Add(original, expr)
-
-	// Since the expression is always surrounded by ^ and $ this is an exact
-	// match for either a plain string (for example ^hello$) or for a regexp
-	// (for example ^hel*o$).
-	return expr.MatchString(input), nil
+	return expr, nil
 }
 
 var (

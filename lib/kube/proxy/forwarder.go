@@ -30,7 +30,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -540,7 +539,7 @@ func (f *Forwarder) authenticate(req *http.Request) (*authContext, error) {
 
 	// kubeResource is the Kubernetes Resource the request is targeted at.
 	// Currently only supports Pods and it includes the pod name and namespace.
-	kubeResource := getPodResourceFromRequest(req.RequestURI)
+	kubeResource := getResourceFromRequest(req.RequestURI)
 	authContext, err := f.setupContext(ctx, *userContext, req, isRemoteUser, kubeResource)
 	if err != nil {
 		f.log.WithError(err).Warn("Unable to setup context.")
@@ -969,24 +968,6 @@ func (f *Forwarder) getKubeAccessDetails(
 		kubeUsers:     []string{},
 		clusterLabels: map[string]string{},
 	}, nil
-}
-
-// podNameRegex is the Pods endpoint API url.
-var podNameRegex = regexp.MustCompile(`/api/v1/namespaces/([^/]+)/pods/([^/]+)`)
-
-// getPodResourceFromRequest returns a KubernetesResource if the user tried to access
-// a specific Pod endpoint. Otherwise, returns nil.
-// TODO(tigrato): extend it to support other resources.
-func getPodResourceFromRequest(requestURI string) *types.KubernetesResource {
-	matches := podNameRegex.FindStringSubmatch(requestURI)
-	if matches == nil {
-		return nil
-	}
-	return &types.KubernetesResource{
-		Kind:      types.KindKubePod,
-		Namespace: matches[1],
-		Name:      matches[2],
-	}
 }
 
 func (f *Forwarder) authorize(ctx context.Context, actx *authContext) error {
@@ -2220,7 +2201,7 @@ func (f *Forwarder) newClusterSessionLocal(ctx context.Context, authCtx authCont
 		return nil, trace.NotFound("kubernetes cluster %q not found", authCtx.kubeClusterName)
 	}
 
-	f.log.Debugf("Handling kubernetes session for %v using local credentials.", ctx)
+	f.log.Debugf("Handling kubernetes session for %v using local credentials.", authCtx)
 	return &clusterSession{
 		parent:         f,
 		authContext:    authCtx,
@@ -2549,7 +2530,7 @@ func (f *Forwarder) listPodsList(req *http.Request, w http.ResponseWriter, sess 
 	// filterBuffer filters the response to exclude pods the user doesn't have access to.
 	// The filtered payload will be written into memBuffer again.
 	if err := filterBuffer(
-		newPodFilterer(allowedResources, deniedResources, f.log),
+		newResourceFilterer(allowedResources, deniedResources, f.log),
 		memBuffer,
 	); err != nil {
 		return memBuffer.Status(), trace.Wrap(err)
@@ -2573,7 +2554,7 @@ func (f *Forwarder) listPodsList(req *http.Request, w http.ResponseWriter, sess 
 // for the next event.
 func (f *Forwarder) listPodsWatcher(req *http.Request, w http.ResponseWriter, sess *clusterSession, allowedResources, deniedResources []types.KubernetesResource) (int, error) {
 	negotiator := newClientNegotiator()
-	rw, err := responsewriters.NewWatcherResponseWriter(w, negotiator, newPodFilterer(allowedResources, deniedResources, f.log))
+	rw, err := responsewriters.NewWatcherResponseWriter(w, negotiator, newResourceFilterer(allowedResources, deniedResources, f.log))
 	if err != nil {
 		return http.StatusInternalServerError, trace.Wrap(err)
 	}

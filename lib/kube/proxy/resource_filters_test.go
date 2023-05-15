@@ -89,7 +89,7 @@ func Test_filterBuffer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf, decompress := newMemoryResponseWriter(t, data, tt.args.contentEncoding)
 
-			err := filterBuffer(newPodFilterer(tt.args.allowedPods, nil, log), buf)
+			err := filterBuffer(newResourceFilterer(tt.args.allowedPods, nil, log), buf)
 			require.NoError(t, err)
 
 			// Decompress the buffer to compare the result.

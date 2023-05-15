@@ -109,3 +109,34 @@ func (h *Handler) awsOIDCClientRequest(ctx context.Context, region string, p htt
 		Region:  region,
 	}, nil
 }
+
+// awsOIDCDeployDBService deploys an agent using the AWS OIDC Integration.
+func (h *Handler) awsOIDCDeployDBService(w http.ResponseWriter, r *http.Request, p httprouter.Params, sctx *SessionContext, site reversetunnel.RemoteSite) (interface{}, error) {
+	ctx := r.Context()
+
+	var req ui.AWSOIDCDeployDBServiceRequest
+	if err := httplib.ReadJSON(r, &req); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	awsClientReq, err := h.awsOIDCClientRequest(ctx, req.Region, p, sctx, site)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	deployDBServiceClient, err := awsoidc.NewDeployDBServiceClient(ctx, awsClientReq)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	deployDBServiceResp, err := awsoidc.DeployDBService(ctx, deployDBServiceClient, awsoidc.DeployDBServiceRequest{
+		Region:    req.Region,
+		SubnetIDs: req.SubnetIDs,
+	})
+
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return deployDBServiceResp, nil
+}

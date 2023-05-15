@@ -126,3 +126,13 @@ type AWSOIDCListDatabasesResponse struct {
 	// If non-empty, it can be used to request the next page.
 	NextToken string `json:"nextToken,omitempty"`
 }
+
+// AWSOIDCDeployDBServiceRequest contains the required fields to perform a DeployDBService request.
+type AWSOIDCDeployDBServiceRequest struct {
+	// Region is the AWS Region of the instance.
+	Region string `json:"region"`
+
+	// SubnetIDs associated with the Database Service.
+	// These SubnetIDs come from the AWS OIDC ListDatabases response.
+	SubnetIDs []string `json:"subnetIds"`
+}

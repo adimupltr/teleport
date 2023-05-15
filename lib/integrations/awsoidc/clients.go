@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/gravitational/trace"
@@ -80,6 +81,16 @@ func newRDSClient(ctx context.Context, req *AWSClientRequest) (*rds.Client, erro
 	}
 
 	return rds.NewFromConfig(*cfg), nil
+}
+
+// newECSClient creates an [ecs.Client] using the provided Token, RoleARN and Region.
+func newECSClient(ctx context.Context, req *AWSClientRequest) (*ecs.Client, error) {
+	cfg, err := newAWSConfig(ctx, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return ecs.NewFromConfig(*cfg), nil
 }
 
 // IdentityToken is an implementation of [stscreds.IdentityTokenRetriever] for returning a static token.

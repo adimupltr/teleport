@@ -17,12 +17,14 @@ limitations under the License.
 package integrations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -175,4 +177,41 @@ func TestIntegrationCRUD(t *testing.T) {
 
 	require.Len(t, listResp.Items, 1)
 	require.Empty(t, listResp.NextKey)
+}
+
+func TestDeployDBService(t *testing.T) {
+	beg := time.Now()
+	webPack := helpers.LoginWebClient(t, "<proxy>.teleportdemo.net", "<user>", password)
+
+	action := "deploydbservice"
+
+	var req any
+	switch action {
+	case "deploydbservice":
+		req = ui.AWSOIDCDeployDBServiceRequest{
+			// comes from the Database Object
+			Region: "us-east-1",
+			// comes from the Database Object
+			SubnetIDs: []string{},
+		}
+	case "databases":
+		req = ui.AWSOIDCListDatabasesRequest{
+			Region:  "us-east-1",
+			RDSType: "instance",
+			Engines: []string{"postgres"},
+		}
+	}
+
+	integrationsEndpoint, err := url.JoinPath("sites", "$site", "integrations", "aws-oidc", "teleportdev", action)
+	require.NoError(t, err)
+	respStatus, respBody := webPack.DoRequest(t, http.MethodPost, integrationsEndpoint, req)
+	require.Equal(t, http.StatusOK, respStatus, string(respBody))
+
+	var jsonIndent bytes.Buffer
+	err = json.Indent(&jsonIndent, respBody, "", "  ")
+	require.NoError(t, err)
+
+	t.Log("RESP", respStatus, jsonIndent.String())
+	t.Log("TEST TOOK", time.Since(beg))
+	t.Fail()
 }

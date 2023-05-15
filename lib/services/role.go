@@ -223,7 +223,7 @@ func ValidateRole(r types.Role) error {
 	for _, condition := range []types.RoleConditionType{types.Allow, types.Deny} {
 		for _, login := range r.GetLogins(condition) {
 			if strings.Contains(login, "{{") || strings.Contains(login, "}}") {
-				_, err := parse.NewExpression(login)
+				_, err := parse.NewTraitsTemplateExpression(login)
 				if err != nil {
 					return trace.BadParameter("invalid login found: %v", login)
 				}
@@ -518,7 +518,7 @@ func applyLabelsTraits(inLabels types.Labels, traits map[string][]string) types.
 // at least one value in case if return value is nil
 func ApplyValueTraits(val string, traits map[string][]string) ([]string, error) {
 	// Extract the variable from the role variable.
-	expr, err := parse.NewExpression(val)
+	expr, err := parse.NewTraitsTemplateExpression(val)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

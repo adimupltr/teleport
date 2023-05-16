@@ -26,6 +26,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/gravitational/teleport/lib/utils"
+	"github.com/gravitational/teleport/lib/utils/parse"
 	"github.com/gravitational/teleport/lib/utils/typical"
 )
 
@@ -108,18 +109,9 @@ func mustNewLabelExpressionParser() *typical.Parser[labelExpressionEnv, bool] {
 					}
 					return match, nil
 				}),
-			"regexp.replace": typical.TernaryFunction[labelExpressionEnv](
-				func(list []string, re string, replacement string) ([]string, error) {
-					out := make([]string, len(list))
-					for i, s := range list {
-						var err error
-						out[i], err = utils.ReplaceRegexp(re, replacement, s)
-						if err != nil {
-							return nil, trace.Wrap(err)
-						}
-					}
-					return out, nil
-				}),
+			// Use regexp.replace from lib/utils/parse to get behavior identical
+			// to role templates.
+			"regexp.replace": typical.TernaryFunction[labelExpressionEnv](parse.RegexpReplace),
 			"strings.upper": typical.UnaryFunction[labelExpressionEnv](
 				func(list []string) ([]string, error) {
 					out := make([]string, len(list))

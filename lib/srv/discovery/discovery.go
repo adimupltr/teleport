@@ -445,32 +445,37 @@ func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
 	}
 }
 
-func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...types.CertAuthType) (*types.Rotation, error) {
+func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...types.CertAuthType) (time.Time, error) {
 	clusterName, err := s.AccessPoint.GetClusterName()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return time.Time{}, trace.Wrap(err)
 	}
 
-	var rotation types.Rotation
+	var mostRecentUpdate time.Time
 	for _, caType := range caTypes {
 		certAuthoritys, err := s.AccessPoint.GetCertAuthorities(ctx, caType, false)
 		if err != nil {
-			return nil, err
+			return time.Time{}, err
 		}
 		for _, ca := range certAuthoritys {
 			if ca.GetClusterName() != clusterName.GetClusterName() {
 				continue
 			}
-			if ca.GetRotation().LastRotated.After(rotation.LastRotated) {
-				rotation = ca.GetRotation()
+			caRot := ca.GetRotation()
+			if caRot.State == types.RotationStateInProgress && caRot.Started.After(mostRecentUpdate) {
+				mostRecentUpdate = caRot.Started
+			}
+
+			if caRot.LastRotated.After(mostRecentUpdate) {
+				mostRecentUpdate = caRot.LastRotated
 			}
 		}
 	}
-	return &rotation, nil
+	return mostRecentUpdate, nil
 }
 
 func (s *Server) findUnrotatedEC2Nodes(ctx context.Context) ([]types.Server, error) {
-	lastRotationForCAs, err := s.getMostRecentRotationForCAs(ctx, types.OpenSSHCA, types.HostCA)
+	mostRecentCertRotation, err := s.getMostRecentRotationForCAs(ctx, types.OpenSSHCA, types.HostCA)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -485,7 +490,7 @@ func (s *Server) findUnrotatedEC2Nodes(ctx context.Context) ([]types.Server, err
 			return false
 		}
 
-		if n.GetRotation().LastRotated.Before(lastRotationForCAs.LastRotated) {
+		if n.GetRotation().LastRotated.After(mostRecentCertRotation) {
 			return false
 		}
 		return true
@@ -656,7 +661,6 @@ func (s *Server) watchCARotations(ctx context.Context) {
 			Kind: types.KindCertAuthority,
 			Filter: types.CertAuthorityFilter{
 				types.OpenSSHCA: clustername.GetName(),
-				types.HostCA:    clustername.GetName(),
 			}.IntoMap()}},
 	})
 	if err != nil {

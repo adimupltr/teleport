@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/trace"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
@@ -46,7 +45,7 @@ func parseLabelExpression(expr string) (labelExpression, error) {
 		return nil, trace.Wrap(err, "parsing label expression")
 	}
 	if evicted := labelExpressionCache.Add(expr, parsedExpr); evicted {
-		logrus.Warn("evicting entry from label expression cache")
+		log.Info("Evicting entry from label expression cache")
 	}
 	return parsedExpr, nil
 
@@ -63,32 +62,40 @@ const (
 )
 
 func mustNewLabelExpressionCache() *lru.Cache[string, labelExpression] {
+	cache, err := newLabelExpressionCache()
+	if err != nil {
+		panic(trace.Wrap(err, "initializing label expression cache"))
+	}
+	return cache
+}
+
+func newLabelExpressionCache() (*lru.Cache[string, labelExpression], error) {
 	cacheSize := defaultCacheSize
 	if env := os.Getenv(cacheSizeEnvVar); env != "" {
-		if envCacheSize, err := strconv.ParseUint(env, 10, 0); err != nil {
-			log.WithError(err).Warn("parsing " + cacheSizeEnvVar)
+		if envCacheSize, err := strconv.ParseUint(env, 10, 31); err != nil {
+			log.WithError(err).Warn("Parsing " + cacheSizeEnvVar)
 		} else {
 			cacheSize = int(envCacheSize)
 		}
 	}
 	cache, err := lru.New[string, labelExpression](cacheSize)
-	if err != nil {
-		panic(err)
-	}
-	return cache
+	return cache, trace.Wrap(err)
 }
 
 func mustNewLabelExpressionParser() *typical.Parser[labelExpressionEnv, bool] {
+	parser, err := newLabelExpressionParser()
+	if err != nil {
+		panic(trace.Wrap(err, "failed to create label expression parser (this is a bug)"))
+	}
+	return parser
+}
+
+func newLabelExpressionParser() (*typical.Parser[labelExpressionEnv, bool], error) {
 	parser, err := typical.NewParser[labelExpressionEnv, bool](typical.ParserSpec{
 		Variables: map[string]typical.Variable{
 			"user.spec.traits": typical.DynamicVariable(
 				func(env labelExpressionEnv) (map[string][]string, error) {
 					return env.userTraits, nil
-				}),
-			"resource.metadata.labels": typical.DynamicMapFunction(
-				func(env labelExpressionEnv, key string) (string, error) {
-					label, _ := env.resourceLabelGetter.GetLabel(key)
-					return label, nil
 				}),
 			"labels": typical.DynamicMapFunction(
 				func(env labelExpressionEnv, key string) (string, error) {
@@ -103,7 +110,7 @@ func mustNewLabelExpressionParser() *typical.Parser[labelExpressionEnv, bool] {
 				}),
 			"regexp.match": typical.BinaryFunction[labelExpressionEnv](
 				func(list []string, re string) (bool, error) {
-					match, err := utils.RegexMatchesSlice(list, re)
+					match, err := utils.RegexMatchesAny(list, re)
 					if err != nil {
 						return false, trace.Wrap(err, "invalid regular expression %q", re)
 					}
@@ -130,8 +137,5 @@ func mustNewLabelExpressionParser() *typical.Parser[labelExpressionEnv, bool] {
 				}),
 		},
 	})
-	if err != nil {
-		panic(trace.Wrap(err, "failed to create label expression parser (this is a bug)"))
-	}
-	return parser
+	return parser, trace.Wrap(err)
 }

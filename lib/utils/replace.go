@@ -128,7 +128,10 @@ func SliceMatchesRegex(input string, expressions []string) (bool, error) {
 	return false, nil
 }
 
-func RegexMatchesSlice(inputs []string, expression string) (bool, error) {
+// RegexMatchesAny returns true if [expression] matches any element of
+// [inputs]. [expression] support globbing ("env-*") or normal regexp syntax if
+// surrounded with ^$ ("^env-.*$").
+func RegexMatchesAny(inputs []string, expression string) (bool, error) {
 	expr, err := compileRegexCached(expression)
 	if err != nil {
 		return false, trace.Wrap(err)

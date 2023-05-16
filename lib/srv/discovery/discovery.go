@@ -71,6 +71,7 @@ type Config struct {
 	// for all discovery services. If different agents are used to discover different
 	// sets of cloud resources, this field must be different for each set of agents.
 	DiscoveryGroup string
+	ClusterName    string
 }
 
 func (c *Config) CheckAndSetDefaults() error {
@@ -178,10 +179,6 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 		s.missedRotation = make(chan []types.Server)
 		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients, s.missedRotation, s.rotationEvents)
 		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := s.initTeleportNodeWatcher(); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -446,11 +443,6 @@ func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
 }
 
 func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...types.CertAuthType) (time.Time, error) {
-	clusterName, err := s.AccessPoint.GetClusterName()
-	if err != nil {
-		return time.Time{}, trace.Wrap(err)
-	}
-
 	var mostRecentUpdate time.Time
 	for _, caType := range caTypes {
 		certAuthoritys, err := s.AccessPoint.GetCertAuthorities(ctx, caType, false)
@@ -458,7 +450,7 @@ func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...typ
 			return time.Time{}, err
 		}
 		for _, ca := range certAuthoritys {
-			if ca.GetClusterName() != clusterName.GetClusterName() {
+			if ca.GetClusterName() != s.ClusterName {
 				continue
 			}
 			caRot := ca.GetRotation()
@@ -650,17 +642,11 @@ func (s *Server) Wait() error {
 }
 
 func (s *Server) watchCARotations(ctx context.Context) {
-	clustername, err := s.AccessPoint.GetClusterName()
-	if err != nil {
-		s.Log.Error(err)
-		return
-	}
-
 	watcher, err := s.AccessPoint.NewWatcher(ctx, types.Watch{
 		Kinds: []types.WatchKind{{
 			Kind: types.KindCertAuthority,
 			Filter: types.CertAuthorityFilter{
-				types.OpenSSHCA: clustername.GetName(),
+				types.OpenSSHCA: s.ClusterName,
 			}.IntoMap()}},
 	})
 	if err != nil {
@@ -678,11 +664,6 @@ func (s *Server) watchCARotations(ctx context.Context) {
 	for {
 		select {
 		case event := <-watcher.Events():
-			if event.Type == types.OpInit {
-				s.Log.Infof("Started watching for CA rotations")
-				continue
-			}
-
 			if event.Type != types.OpPut {
 				continue
 			}
@@ -701,8 +682,8 @@ func (s *Server) watchCARotations(ctx context.Context) {
 			}
 
 			// Skip anything not from our cluster
-			if ca.GetClusterName() != clustername.GetName() {
-				s.Log.Debugf("skipping due to cluster name of CA: was '%s', wanted '%s'", ca.GetClusterName(), clustername.GetName())
+			if ca.GetClusterName() != s.ClusterName {
+				s.Log.Debugf("skipping due to cluster name of CA: was '%s', wanted '%s'", ca.GetClusterName(), s.ClusterName)
 				continue
 			}
 
@@ -742,9 +723,6 @@ func (s *Server) getAzureSubscriptions(ctx context.Context, subs []string) ([]st
 }
 
 func (s *Server) initTeleportNodeWatcher() (err error) {
-	if s.nodeWatcher != nil {
-		return nil
-	}
 	s.nodeWatcher, err = services.NewNodeWatcher(s.ctx, services.NodeWatcherConfig{
 		ResourceWatcherConfig: services.ResourceWatcherConfig{
 			Component:    teleport.ComponentDiscovery,

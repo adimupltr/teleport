@@ -76,10 +76,11 @@ func (w *Watcher) Run() {
 	}
 	ticker := time.NewTicker(w.fetchInterval)
 	defer ticker.Stop()
+
+	for _, fetcher := range w.fetchers {
+		w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
+	}
 	for {
-		for _, fetcher := range w.fetchers {
-			w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
-		}
 		select {
 		case insts := <-w.missedRotation:
 			for _, fetcher := range w.fetchers {
@@ -87,10 +88,12 @@ func (w *Watcher) Run() {
 			}
 		case <-w.fullRotation:
 			for _, fetcher := range w.fetchers {
-				w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, true))
+				w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
 			}
 		case <-ticker.C:
-			continue
+			for _, fetcher := range w.fetchers {
+				w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
+			}
 		case <-w.ctx.Done():
 			return
 		}

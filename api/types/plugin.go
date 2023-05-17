@@ -122,12 +122,13 @@ func (p *PluginV1) CheckAndSetDefaults() error {
 		if p.Credentials == nil {
 			return trace.BadParameter("credentials must be set")
 		}
+
 		bearer := p.Credentials.GetBearerToken()
 		if bearer == nil {
 			return trace.BadParameter("openai plugin must be used with the bearer token credential type")
 		}
-		if (bearer.Token == "") == (bearer.TokenFile == "") {
-			return trace.BadParameter("exactly one of Token and TokenFile must be specified")
+		if err := bearer.CheckAndSetDefaults(); err != nil {
+			return trace.Wrap(err)
 		}
 	case *PluginSpecV1_Opsgenie:
 		if settings.Opsgenie == nil {
@@ -141,8 +142,8 @@ func (p *PluginV1) CheckAndSetDefaults() error {
 		if bearer == nil {
 			return trace.BadParameter("opsgenie plugin must be used with the bearer token credential type")
 		}
-		if (bearer.Token == "") == (bearer.TokenFile == "") {
-			return trace.BadParameter("exactly one of Token and TokenFile must be specified")
+		if err := bearer.CheckAndSetDefaults(); err != nil {
+			return trace.Wrap(err)
 		}
 	case *PluginSpecV1_Jamf:
 		if settings.Jamf.JamfSpec.ApiEndpoint == "" {
@@ -277,6 +278,13 @@ func (p *PluginV1) SetCredentials(creds PluginCredentials) error {
 		p.Credentials = creds
 	default:
 		return trace.BadParameter("unsupported plugin credential type %T", creds)
+	}
+	return nil
+}
+
+func (c *PluginBearerTokenCredentials) CheckAndSetDefaults() error {
+	if (c.Token == "") == (c.TokenFile == "") {
+		return trace.BadParameter("exactly one of Token and TokenFile must be specified")
 	}
 	return nil
 }

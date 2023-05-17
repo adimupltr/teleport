@@ -482,7 +482,7 @@ func (s *Server) findUnrotatedEC2Nodes(ctx context.Context) ([]types.Server, err
 			return false
 		}
 
-		if n.GetRotation().LastRotated.After(mostRecentCertRotation) {
+		if n.GetRotation().LastRotated.After(mostRecentCertRotation) || n.GetRotation().LastRotated.Equal(mostRecentCertRotation) {
 			return false
 		}
 		return true

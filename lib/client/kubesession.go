@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/gravitational/trace"
@@ -36,8 +35,6 @@ import (
 	"github.com/gravitational/teleport/lib/kube/proxy/streamproto"
 	"github.com/gravitational/teleport/lib/utils"
 )
-
-const mfaChallengeInterval = time.Second * 30
 
 // KubeSession a joined kubernetes session from the client side.
 type KubeSession struct {

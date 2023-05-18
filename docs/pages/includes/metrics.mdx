@@ -18,8 +18,8 @@
 | `backend_requests`                                   | counter     | cache               | Number of write requests to the backend.                                                           |
 | `backend_write_seconds`                              | histogram   | cache               | Latency for backend write operations.                                                              |
 | `cluster_name_not_found_total`                       | counter     | Teleport Auth       | Number of times a cluster was not found.                                                           |
-| `dynamo_requests_total`                              | counter     | DynamoDB            | Total number of requests to the DynamoDB API.                                                            |
-| `dynamo_requests`                                    | counter     | DynamoDB            | Total number of requests to the DynamoDB API grouped by result.                                          |
+| `dynamo_requests_total`                              | counter     | DynamoDB            | Total number of requests to the DynamoDB API.                                                      |
+| `dynamo_requests`                                    | counter     | DynamoDB            | Total number of requests to the DynamoDB API grouped by result.                                    |
 | `dynamo_requests_seconds`                            | histogram   | DynamoDB            | Latency of DynamoDB API requests.                                                                  |
 | `etcd_backend_batch_read_requests`                   | counter     | etcd                | Number of read requests to the etcd database.                                                      |
 | `etcd_backend_batch_read_seconds`                    | histogram   | etcd                | Latency for etcd read operations.                                                                  |
@@ -45,7 +45,7 @@
 | `grpc_server_msg_sent_total`                         | counter     | Teleport Auth       | Total number of gRPC stream messages sent by the server.                                           |
 | `heartbeat_connections_received_total`               | counter     | Teleport Auth       | Number of times the Auth Service received a heartbeat connection.                                  |
 | `s3_requests_total`                                  | counter     | Amazon S3           | Total number of requests to the S3 API.                                                            |
-| `s3_requests`                                        | counter     | Amazon S3           | Total number of requests to the S3 API grouped by result.                                                        |
+| `s3_requests`                                        | counter     | Amazon S3           | Total number of requests to the S3 API grouped by result.                                          |
 | `s3_requests_seconds`                                | histogram   | Amazon S3           | Request latency for the S3 API.                                                                    |
 | `teleport_audit_emit_events`                         | counter     | Teleport Audit Log  | Number of audit events emitted.                                                                    |
 | `teleport_audit_athena_batch_processing_seconds`     | histogram   | Teleport Audit Log  | Duration of processing single batch of events in athena audit log.                                 |

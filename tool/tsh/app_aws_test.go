@@ -171,6 +171,7 @@ func makeTestApplicationServer(t *testing.T, auth *service.TeleportProcess, prox
 	cfg.Auth.Enabled = false
 	cfg.Proxy.Enabled = false
 	cfg.Apps.Enabled = true
+	cfg.Apps.DebugApp = true
 	cfg.Apps.Apps = apps
 	cfg.Log = utils.NewLoggerForTests()
 

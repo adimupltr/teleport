@@ -47,7 +47,7 @@ func onAppLogin(cf *CLIConf) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := getRegisteredApp(cf, tc)
+	app, err := getRegisteredApp(cf, tc, tc.SiteName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -105,7 +105,7 @@ func onAppLogin(cf *CLIConf) error {
 	}
 
 	params := client.ReissueParams{
-		RouteToCluster: tc.SiteName,
+		RouteToCluster: profile.Cluster,
 		RouteToApp: proto.RouteToApp{
 			Name:              app.GetName(),
 			SessionID:         ws.GetName(),
@@ -120,10 +120,6 @@ func onAppLogin(cf *CLIConf) error {
 
 	err = tc.ReissueUserCerts(cf.Context, client.CertCacheKeep, params)
 	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err := tc.SaveProfile(true); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -180,7 +176,13 @@ func onAppLogin(cf *CLIConf) error {
 		})
 
 	default:
-		curlCmd, err := formatAppConfig(tc, profile, app.GetName(), app.GetPublicAddr(), appFormatCURL, rootCluster, awsRoleARN, azureIdentity, gcpServiceAccount)
+		publicAddr := app.GetPublicAddr()
+		// for remote apps, override their public address with address pointing at the public proxy address.
+		// if profile.Cluster != tc.SiteName {
+		if rootCluster != tc.SiteName {
+			publicAddr = fmt.Sprintf("%v.%v", app.GetName(), tc.WebProxyHost())
+		}
+		curlCmd, err := formatAppConfig(tc, profile, app.GetName(), publicAddr, appFormatCURL, rootCluster, awsRoleARN, azureIdentity, gcpServiceAccount)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -261,10 +263,11 @@ Example command: tsh gcloud compute instances list
 `))
 
 // getRegisteredApp returns the registered application with the specified name.
-func getRegisteredApp(cf *CLIConf, tc *client.TeleportClient) (app types.Application, err error) {
-	var apps []types.Application
+func getRegisteredApp(cf *CLIConf, tc *client.TeleportClient, cluster string) (app types.Application, err error) {
+	var mapping map[string][]types.Application
+
 	err = client.RetryWithRelogin(cf.Context, tc, func() error {
-		apps, err = tc.ListApps(cf.Context, &proto.ListResourcesRequest{
+		mapping, err = tc.ListAppsAllClusters(cf.Context, &proto.ListResourcesRequest{
 			Namespace:           tc.Namespace,
 			ResourceType:        types.KindAppServer,
 			PredicateExpression: fmt.Sprintf(`name == "%s"`, cf.AppName),
@@ -273,6 +276,15 @@ func getRegisteredApp(cf *CLIConf, tc *client.TeleportClient) (app types.Applica
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	if cluster == "" {
+		cluster = tc.SiteName
+	}
+
+	apps, ok := mapping[cluster]
+	if !ok {
+		return nil, trace.NotFound("cluster %q not found", cluster)
 	}
 	if len(apps) == 0 {
 		return nil, trace.NotFound("app %q not found, use `tsh apps ls` to see registered apps", cf.AppName)

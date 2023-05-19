@@ -17,12 +17,200 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/gravitational/teleport/api/defaults"
+	"github.com/gravitational/teleport/api/types"
+	"github.com/gravitational/teleport/lib"
 	"github.com/gravitational/teleport/lib/client"
+	"github.com/gravitational/teleport/lib/reversetunnel"
+	"github.com/gravitational/teleport/lib/service"
 )
+
+func TestAppLoginLeaf(t *testing.T) {
+	// start root and leaf clusters, enable debug `dumper` app in both.
+
+	isInsecure := lib.IsInsecureDevMode()
+	lib.SetInsecureDevMode(true)
+	t.Cleanup(func() {
+		lib.SetInsecureDevMode(isInsecure)
+	})
+
+	connector := mockConnector(t)
+
+	alice, err := types.NewUser("alice@example.com")
+	require.NoError(t, err)
+	alice.SetRoles([]string{"access"})
+
+	rootAuth, rootProxy := makeTestServers(t, withClusterName(t, "root"), withBootstrap(connector, alice))
+	event, err := rootAuth.WaitForEventTimeout(time.Second, service.ProxyReverseTunnelReady)
+	require.NoError(t, err)
+	tunnel, ok := event.Payload.(reversetunnel.Server)
+	require.True(t, ok)
+
+	rootAppServer := makeTestApplicationServer(t, rootAuth, rootProxy)
+	_, err = rootAppServer.WaitForEventTimeout(time.Second*10, service.TeleportReadyEvent)
+	require.NoError(t, err)
+
+	rootProxyAddr, err := rootProxy.ProxyWebAddr()
+	require.NoError(t, err)
+	rootTunnelAddr, err := rootProxy.ProxyTunnelAddr()
+	require.NoError(t, err)
+
+	trustedCluster, err := types.NewTrustedCluster("localhost", types.TrustedClusterSpecV2{
+		Enabled:              true,
+		Roles:                []string{},
+		Token:                staticToken,
+		ProxyAddress:         rootProxyAddr.String(),
+		ReverseTunnelAddress: rootTunnelAddr.String(),
+		RoleMap: []types.RoleMapping{
+			{
+				Remote: "access",
+				Local:  []string{"access"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	leafAuth, leafProxy := makeTestServers(t, withClusterName(t, "leaf"))
+
+	leafAppServer := makeTestApplicationServer(t, leafAuth, leafProxy)
+	_, err = leafAppServer.WaitForEventTimeout(time.Second*10, service.TeleportReadyEvent)
+	require.NoError(t, err)
+
+	tryCreateTrustedCluster(t, leafAuth.GetAuthServer(), trustedCluster)
+
+	// wait for the connection to come online and the app server information propagate.
+	require.Eventually(t, func() bool {
+		conns, err := rootAuth.GetAuthServer().GetTunnelConnections("leaf")
+		return err == nil && len(conns) == 1
+	}, 10*time.Second, 100*time.Millisecond, "leaf cluster did not come online")
+
+	require.Eventually(t, func() bool {
+		leafSite, err := tunnel.GetSite("leaf")
+		require.NoError(t, err)
+		ap, err := leafSite.CachingAccessPoint()
+		require.NoError(t, err)
+
+		servers, err := ap.GetApplicationServers(context.Background(), defaults.Namespace)
+		if err != nil {
+			return false
+		}
+		return len(servers) == 1 && servers[0].GetName() == "dumper"
+
+	}, 10*time.Second, 100*time.Millisecond, "leaf cluster did not come online")
+
+	// helpers
+	getHelpers := func(t *testing.T) (func(cluster string) string, func(args ...string) string) {
+		tmpHomePath := t.TempDir()
+
+		run := func(args []string, opts ...cliOption) string {
+			opts = append(opts, setHomePath(tmpHomePath))
+			return captureStdout(t, func() {
+				err := Run(context.Background(), args, opts...)
+				require.NoError(t, err)
+			})
+		}
+
+		login := func(cluster string) string {
+			args := []string{
+				"login",
+				"--insecure",
+				"--debug",
+				"--auth", connector.GetName(),
+				"--proxy", rootProxyAddr.String(),
+				cluster}
+
+			opt := func(cf *CLIConf) error {
+				cf.mockSSOLogin = mockSSOLogin(t, rootAuth.GetAuthServer(), alice)
+				return nil
+			}
+
+			return run(args, opt)
+		}
+		tsh := func(args ...string) string { return run(args) }
+
+		return login, tsh
+	}
+
+	verifyAppIsAvailable := func(t *testing.T, conf string) {
+		var info appConfigInfo
+		require.NoError(t, json.Unmarshal([]byte(conf), &info))
+
+		clientCert, err := tls.LoadX509KeyPair(info.Cert, info.Key)
+		require.NoError(t, err)
+
+		clt := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+					Certificates:       []tls.Certificate{clientCert},
+				},
+			},
+		}
+
+		resp, err := clt.Get(fmt.Sprintf("https://%v", rootProxyAddr.Addr))
+		require.NoError(t, err)
+
+		require.Equal(t, 200, resp.StatusCode)
+		require.Equal(t, 1, len(resp.Cookies()))
+		require.Equal(t, "dumper.session.cookie", resp.Cookies()[0].Name)
+	}
+
+	tests := []struct{ name, loginCluster, appCluster string }{
+		{"root login cluster, root app cluster", "root", "root"},
+		{"root login cluster, leaf app cluster", "root", "leaf"},
+		{"leaf login cluster, root app cluster", "leaf", "root"},
+		{"leaf login cluster, leaf app cluster", "leaf", "leaf"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			login, tsh := getHelpers(t)
+
+			login(tt.loginCluster)
+			tsh("app", "ls")
+			tsh("app", "login", "dumper", "--cluster", tt.appCluster)
+			conf := tsh("app", "config", "--format=json")
+			verifyAppIsAvailable(t, conf)
+			tsh("logout")
+		})
+	}
+}
+
+func captureStdout(t *testing.T, f func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	out := make(chan string)
+
+	// pipes have limited buffer length and will block once full.
+	// to avoid a deadlock, a separate goroutine should be draining the pipe continuously.
+	go func() {
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		out <- string(data)
+	}()
+
+	f()
+
+	require.NoError(t, w.Close())
+	os.Stdout = old
+
+	return <-out
+}
 
 func TestFormatAppConfig(t *testing.T) {
 	t.Parallel()
@@ -40,8 +228,6 @@ func TestFormatAppConfig(t *testing.T) {
 	testAppPublicAddr := "test-tp.teleport"
 	testCluster := "test-tp"
 
-	// func formatAppConfig(tc *client.TeleportClient, profile *client.ProfileStatus, appName,
-	// appPublicAddr, format, cluster string) (string, error) {
 	tests := []struct {
 		name              string
 		tc                *client.TeleportClient

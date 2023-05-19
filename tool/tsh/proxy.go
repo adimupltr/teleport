@@ -555,7 +555,7 @@ func onProxyCommandApp(cf *CLIConf) error {
 		return trace.Wrap(err)
 	}
 
-	app, err := getRegisteredApp(cf, tc)
+	app, err := getRegisteredApp(cf, tc, tc.SiteName)
 	if err != nil {
 		return trace.Wrap(err)
 	}

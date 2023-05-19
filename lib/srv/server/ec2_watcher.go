@@ -58,6 +58,8 @@ type EC2Instances struct {
 	Rotation bool
 }
 
+// EC2Instance represents an AWS EC2 instance that has been
+// discovered.
 type EC2Instance struct {
 	InstanceID string
 }
@@ -131,6 +133,9 @@ type ec2InstanceFetcher struct {
 	DocumentName string
 	Parameters   map[string]string
 
+	// foundInstances keeps all of the ec2 instances that were matched
+	// in the last run of GetInstances for use as a cache with
+	// GetMatchingInstances
 	foundInstances map[foundInstancesKey]struct{}
 }
 
@@ -140,8 +145,11 @@ type foundInstancesKey struct {
 }
 
 const (
-	ParamToken          = "token"
-	ParamScriptName     = "scriptName"
+	// ParamToken is the name of the invite token parameter sent in the SSM Document
+	ParamToken = "token"
+	// ParamScriptName is the name of the Teleport install script  sent in the SSM Document
+	ParamScriptName = "scriptName"
+	// ParamSSHDConfigPath is the path to the OpenSSH config file sent in the SSM Document
 	ParamSSHDConfigPath = "sshdConfigPath"
 )
 
@@ -188,6 +196,7 @@ func newEC2InstanceFetcher(cfg ec2FetcherConfig) *ec2InstanceFetcher {
 	return &fetcherConfig
 }
 
+// GetMatchingInstances returns a list of EC2 instances from a list of matching Teleport nodes
 func (f *ec2InstanceFetcher) GetMatchingInstances(nodes []types.Server, rotation bool) ([]Instances, error) {
 	insts := EC2Instances{
 		Region:       f.Region,
@@ -216,7 +225,7 @@ func (f *ec2InstanceFetcher) GetMatchingInstances(nodes []types.Server, rotation
 		if !ok {
 			continue
 		}
-		if insts.AccountID != "" {
+		if insts.AccountID == "" {
 			insts.AccountID = accountID
 		}
 

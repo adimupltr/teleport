@@ -36,7 +36,8 @@ type Instances struct {
 type Fetcher interface {
 	// GetInstances gets a list of cloud instances.
 	GetInstances(ctx context.Context, rotation bool) ([]Instances, error)
-	// GetMatchingInstances changes a list of servers to
+	// GetMatchingInstances finds Instances from the list of nodes
+	// that the fetcher matches.
 	GetMatchingInstances(nodes []types.Server, rotation bool) ([]Instances, error)
 }
 
@@ -80,6 +81,7 @@ func (w *Watcher) Run() {
 	for _, fetcher := range w.fetchers {
 		w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
 	}
+
 	for {
 		select {
 		case insts := <-w.missedRotation:

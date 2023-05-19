@@ -128,7 +128,8 @@ type Server struct {
 	// host or openssh ca has a rotation so it can run a rotation on
 	// agentless nodes.
 	rotationEvents chan struct{}
-	// missedRotation causes a watcher to send installation commands to
+	// missedRotation causes a watcher to send installation commands
+	// to any OpenSSH nodes that might have missed a rotation.
 	missedRotation chan []types.Server
 }
 
@@ -390,6 +391,9 @@ func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// instances.Rotation is true whenever the instances recieved need
+	// to be rotated, we dont want to filter out existing OpenSSH nodes as
+	// they all need to have the command run on them
 	if !instances.Rotation {
 		s.filterExistingEC2Nodes(instances)
 	}
@@ -424,13 +428,14 @@ func (s *Server) logHandleInstancesErr(err error) {
 
 func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
 	ticker := time.NewTicker(time.Hour * 3)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			nodes, err := s.findUnrotatedEC2Nodes(ctx)
 			if err != nil {
 				if trace.IsNotFound(err) {
-					s.Log.Debug("Failed to find any unrotated nodes")
+					s.Log.Debug("No OpenSSH nodes require CA rotation")
 					continue
 				}
 				s.Log.Errorf("Error finding unrotated ec2 nodes: %s", err)
@@ -445,11 +450,11 @@ func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
 func (s *Server) getMostRecentRotationForCAs(ctx context.Context, caTypes ...types.CertAuthType) (time.Time, error) {
 	var mostRecentUpdate time.Time
 	for _, caType := range caTypes {
-		certAuthoritys, err := s.AccessPoint.GetCertAuthorities(ctx, caType, false)
+		certAuthorities, err := s.AccessPoint.GetCertAuthorities(ctx, caType, false)
 		if err != nil {
-			return time.Time{}, err
+			return time.Time{}, trace.Wrap(err)
 		}
-		for _, ca := range certAuthoritys {
+		for _, ca := range certAuthorities {
 			if ca.GetClusterName() != s.ClusterName {
 				continue
 			}
@@ -654,10 +659,16 @@ func (s *Server) watchCARotations(ctx context.Context) {
 		return
 	}
 
-	for event := range watcher.Events() {
-		if event.Type == types.OpInit {
-			s.Log.Infof("Started watching for CA rotations")
-			break
+outer:
+	for {
+		select {
+		case event := <-watcher.Events():
+			if event.Type == types.OpInit {
+				s.Log.Infof("Started watching for CA rotations")
+				break outer
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 

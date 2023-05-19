@@ -46,7 +46,6 @@ type Watcher struct {
 	// InstancesC can be used to consume newly discovered instances.
 	InstancesC     chan Instances
 	missedRotation <-chan []types.Server
-	fullRotation   <-chan struct{}
 
 	fetchers      []Fetcher
 	fetchInterval time.Duration
@@ -87,10 +86,6 @@ func (w *Watcher) Run() {
 		case insts := <-w.missedRotation:
 			for _, fetcher := range w.fetchers {
 				w.sendInstancesOrLogError(fetcher.GetMatchingInstances(insts, true))
-			}
-		case <-w.fullRotation:
-			for _, fetcher := range w.fetchers {
-				w.sendInstancesOrLogError(fetcher.GetInstances(w.ctx, false))
 			}
 		case <-ticker.C:
 			for _, fetcher := range w.fetchers {

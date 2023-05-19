@@ -82,7 +82,7 @@ func ToEC2Instances(insts []*ec2.Instance) []EC2Instance {
 }
 
 // NewEC2Watcher creates a new EC2 watcher instance.
-func NewEC2Watcher(ctx context.Context, matchers []services.AWSMatcher, clients cloud.Clients, missedRotation <-chan []types.Server, fullRotation <-chan struct{}) (*Watcher, error) {
+func NewEC2Watcher(ctx context.Context, matchers []services.AWSMatcher, clients cloud.Clients, missedRotation <-chan []types.Server) (*Watcher, error) {
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	watcher := Watcher{
 		fetchers:       []Fetcher{},
@@ -91,7 +91,6 @@ func NewEC2Watcher(ctx context.Context, matchers []services.AWSMatcher, clients 
 		fetchInterval:  time.Minute,
 		InstancesC:     make(chan Instances),
 		missedRotation: missedRotation,
-		fullRotation:   fullRotation,
 	}
 
 	for _, matcher := range matchers {

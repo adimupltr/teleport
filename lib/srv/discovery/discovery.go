@@ -124,10 +124,6 @@ type Server struct {
 	kubeFetchers []common.Fetcher
 	// databaseFetchers holds all database fetchers.
 	databaseFetchers []common.Fetcher
-	// rotationEvents notifies the agentless watcher when a
-	// host or openssh ca has a rotation so it can run a rotation on
-	// agentless nodes.
-	rotationEvents chan struct{}
 	// missedRotation causes a watcher to send installation commands
 	// to any OpenSSH nodes that might have missed a rotation.
 	missedRotation chan []types.Server
@@ -176,9 +172,8 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 	// start ec2 watchers
 	var err error
 	if len(ec2Matchers) > 0 {
-		s.rotationEvents = make(chan struct{})
 		s.missedRotation = make(chan []types.Server)
-		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients, s.missedRotation, s.rotationEvents)
+		s.ec2Watcher, err = server.NewEC2Watcher(s.ctx, ec2Matchers, s.Clients, s.missedRotation)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -391,8 +386,8 @@ func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// instances.Rotation is true whenever the instances recieved need
-	// to be rotated, we dont want to filter out existing OpenSSH nodes as
+	// instances.Rotation is true whenever the instances received need
+	// to be rotated, we don't want to filter out existing OpenSSH nodes as
 	// they all need to have the command run on them
 	if !instances.Rotation {
 		s.filterExistingEC2Nodes(instances)
@@ -427,7 +422,7 @@ func (s *Server) logHandleInstancesErr(err error) {
 }
 
 func (s *Server) watchUnrotatedEC2Nodes(ctx context.Context) {
-	ticker := time.NewTicker(time.Hour * 3)
+	ticker := time.NewTicker(time.Minute * 10)
 	defer ticker.Stop()
 	for {
 		select {
@@ -507,7 +502,6 @@ func (s *Server) handleEC2Discovery() {
 
 	go s.ec2Watcher.Run()
 	go s.watchUnrotatedEC2Nodes(s.ctx)
-	go s.watchCARotations(s.ctx)
 
 	for {
 		select {
@@ -644,79 +638,6 @@ func (s *Server) Wait() error {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func (s *Server) watchCARotations(ctx context.Context) {
-	watcher, err := s.AccessPoint.NewWatcher(ctx, types.Watch{
-		Kinds: []types.WatchKind{{
-			Kind: types.KindCertAuthority,
-			Filter: types.CertAuthorityFilter{
-				types.OpenSSHCA: s.ClusterName,
-			}.IntoMap()}},
-	})
-	if err != nil {
-		s.Log.Error(err)
-		return
-	}
-
-outer:
-	for {
-		select {
-		case event := <-watcher.Events():
-			if event.Type == types.OpInit {
-				s.Log.Infof("Started watching for CA rotations")
-				break outer
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
-
-	for {
-		select {
-		case event := <-watcher.Events():
-			if event.Type != types.OpPut {
-				continue
-			}
-			ca, ok := event.Resource.(types.CertAuthority)
-			if !ok {
-				s.Log.Debugf("event resource was not CertAuthority (%T)", event.Resource)
-				continue
-			}
-			// We want to update for all phases but init and update_clients
-			phase := ca.GetRotation().Phase
-			if !slices.Contains([]string{
-				"", types.RotationPhaseUpdateServers, types.RotationPhaseRollback, types.RotationPhaseStandby,
-			}, phase) {
-				s.Log.Debugf("skipping due to phase '%s'", phase)
-				continue
-			}
-
-			// Skip anything not from our cluster
-			if ca.GetClusterName() != s.ClusterName {
-				s.Log.Debugf("skipping due to cluster name of CA: was '%s', wanted '%s'", ca.GetClusterName(), s.ClusterName)
-				continue
-			}
-
-			// We want to skip anything that is not openssh
-			if !slices.Contains([]string{
-				string(types.OpenSSHCA),
-			}, ca.GetSubKind()) {
-				continue
-			}
-			// tell the agentless watcher a rotation has happened and
-			// to send rotation commands to agentless nodes
-			s.rotationEvents <- struct{}{}
-
-		case <-watcher.Done():
-			if err := watcher.Error(); err != nil {
-				s.Log.Error(err)
-			}
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 func (s *Server) getAzureSubscriptions(ctx context.Context, subs []string) ([]string, error) {

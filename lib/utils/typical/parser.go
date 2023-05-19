@@ -94,9 +94,10 @@ type parserOptions struct {
 // ParserOption is an optional option for configuring a Parser.
 type ParserOption func(*parserOptions)
 
-// Old parser versions accidentally allowed "anything.trait" as an alias
-// for "external.trait". Some people wrote typos and now we have to
-// maintain this.
+// WithInvalidNamespaceHack is necessary because old parser versions
+// accidentally allowed "<anything>.trait" as an alias for "external.trait". Some
+// people wrote typos and now we have to maintain this.
+// See https://github.com/gravitational/teleport/pull/21551
 func WithInvalidNamespaceHack() ParserOption {
 	return func(opts *parserOptions) {
 		opts.invalidNamespaceHack = true

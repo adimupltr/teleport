@@ -355,7 +355,7 @@ func onAppConfig(cf *CLIConf) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fmt.Print(conf)
+	_, _ = fmt.Fprint(cf.Stdout(), conf)
 	return nil
 }
 

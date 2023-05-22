@@ -17,13 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
@@ -116,11 +115,12 @@ func TestAppLoginLeaf(t *testing.T) {
 		tmpHomePath := t.TempDir()
 
 		run := func(args []string, opts ...cliOption) string {
+			captureStdout := new(bytes.Buffer)
 			opts = append(opts, setHomePath(tmpHomePath))
-			return captureStdout(t, func() {
-				err := Run(context.Background(), args, opts...)
-				require.NoError(t, err)
-			})
+			opts = append(opts, setCopyStdout(captureStdout))
+			err := Run(context.Background(), args, opts...)
+			require.NoError(t, err)
+			return captureStdout.String()
 		}
 
 		login := func(cluster string) string {
@@ -187,29 +187,6 @@ func TestAppLoginLeaf(t *testing.T) {
 			tsh("logout")
 		})
 	}
-}
-
-func captureStdout(t *testing.T, f func()) string {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	out := make(chan string)
-
-	// pipes have limited buffer length and will block once full.
-	// to avoid a deadlock, a separate goroutine should be draining the pipe continuously.
-	go func() {
-		data, err := io.ReadAll(r)
-		require.NoError(t, err)
-		out <- string(data)
-	}()
-
-	f()
-
-	require.NoError(t, w.Close())
-	os.Stdout = old
-
-	return <-out
 }
 
 func TestFormatAppConfig(t *testing.T) {

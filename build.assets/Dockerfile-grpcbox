@@ -8,6 +8,13 @@ RUN apt-get update && \
     && \
   rm -rf /var/lib/apt/lists/*
 
+# Add the dev user.
+ARG UID
+ARG GID
+RUN groupadd dev --gid=$GID -o && \
+    useradd dev --uid=$UID --gid=$GID --create-home --shell=/bin/sh && \
+    mkdir -p -m0700 /var/lib/teleport && chown -R dev /var/lib/teleport
+
 # protoc-gen-gogofast
 # Keep in sync with api/proto/buf.yaml (and buf.lock)
 ARG GOGO_PROTO_TAG # eg, "v1.3.2"
@@ -42,3 +49,6 @@ RUN cd /teleport-module; \
   go install github.com/bufbuild/connect-go/cmd/protoc-gen-connect-go && \
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc && \
   go install google.golang.org/protobuf/cmd/protoc-gen-go
+
+# Change the default user.
+USER dev

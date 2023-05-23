@@ -347,7 +347,7 @@ func TestALPNSNIProxyKube(t *testing.T) {
 	kubeConfigPath := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvr.URL, localK8SNI))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV6{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:           []string{username},
 			KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -456,7 +456,7 @@ func TestALPNSNIProxyKubeV2Leaf(t *testing.T) {
 	kubeConfigPath := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvr.URL, localK8SNI))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV6{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:           []string{username},
 			KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -528,7 +528,7 @@ func TestKubeIPPinning(t *testing.T) {
 	kubeConfigPathLeaf := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvrLeaf.URL, kubeCluster))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV6{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:           []string{username, username + "2", username + "3"},
 			KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -1566,7 +1566,7 @@ func TestALPNSNIProxyGRPCSecure(t *testing.T) {
 	kubeConfigPath := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvr.URL, localK8SNI))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV6{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:           []string{username},
 			KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},

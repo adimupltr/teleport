@@ -38,7 +38,7 @@ func TestNewUserContext(t *testing.T) {
 	}
 
 	// set some rules
-	role1 := &types.RoleV6{}
+	role1 := &types.RoleImpl{}
 	role1.SetNamespaces(types.Allow, []string{apidefaults.Namespace})
 	role1.SetRules(types.Allow, []types.Rule{
 		{
@@ -63,7 +63,7 @@ func TestNewUserContext(t *testing.T) {
 		},
 	})
 
-	role2 := &types.RoleV6{}
+	role2 := &types.RoleImpl{}
 	role2.SetNamespaces(types.Allow, []string{apidefaults.Namespace})
 	role2.SetRules(types.Allow, []types.Rule{
 		{
@@ -142,7 +142,7 @@ func TestNewUserContextCloud(t *testing.T) {
 		},
 	}
 
-	role := &types.RoleV6{}
+	role := &types.RoleImpl{}
 	role.SetNamespaces(types.Allow, []string{"*"})
 	role.SetRules(types.Allow, []types.Rule{
 		{

@@ -1413,7 +1413,7 @@ func TestRoles(t *testing.T) {
 
 	testResources(t, p, testFuncs[types.Role]{
 		newResource: func(name string) (types.Role, error) {
-			return types.NewRole("role1", types.RoleSpecV6{
+			return types.NewRole("role1", types.RoleImplSpec{
 				Options: types.RoleOptions{
 					MaxSessionTTL: types.Duration(time.Hour),
 				},
@@ -2483,7 +2483,7 @@ func TestCacheWatchKindExistsInEvents(t *testing.T) {
 		types.KindStaticTokens:            &types.StaticTokensV2{},
 		types.KindToken:                   &types.ProvisionTokenV2{},
 		types.KindUser:                    &types.UserV2{},
-		types.KindRole:                    &types.RoleV6{Version: types.V4},
+		types.KindRole:                    &types.RoleImpl{Version: types.V4},
 		types.KindNamespace:               &types.Namespace{},
 		types.KindNode:                    &types.ServerV2{},
 		types.KindProxy:                   &types.ServerV2{},
@@ -2548,7 +2548,7 @@ func TestPartialHealth(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(p.Close)
 
-	role, err := types.NewRole("editor", types.RoleSpecV6{})
+	role, err := types.NewRole("editor", types.RoleImplSpec{})
 	require.NoError(t, err)
 	require.NoError(t, p.accessS.UpsertRole(ctx, role))
 

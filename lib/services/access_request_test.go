@@ -232,7 +232,7 @@ func TestReviewThresholds(t *testing.T) {
 	roles := make(map[string]types.Role)
 
 	for name, conditions := range roleDesc {
-		role, err := types.NewRole(name, types.RoleSpecV6{
+		role, err := types.NewRole(name, types.RoleImplSpec{
 			Allow: conditions,
 		})
 		require.NoError(t, err)
@@ -904,7 +904,7 @@ func TestRequestFilterConversion(t *testing.T) {
 // determined for resource access requests
 func TestRolesForResourceRequest(t *testing.T) {
 	// set up test roles
-	roleDesc := map[string]types.RoleSpecV6{
+	roleDesc := map[string]types.RoleImplSpec{
 		"db-admins": {
 			Allow: types.RoleConditions{
 				NodeLabels: types.Labels{
@@ -1086,7 +1086,7 @@ func TestPruneRequestRoles(t *testing.T) {
 	}
 
 	// set up test roles
-	roleDesc := map[string]types.RoleSpecV6{
+	roleDesc := map[string]types.RoleImplSpec{
 		"response-team": {
 			// By default has access to nothing, but can request many types of
 			// resources.
@@ -1505,7 +1505,7 @@ func TestRequestTTL(t *testing.T) {
 			require.NoError(t, err)
 			user.SetRoles([]string{"bar"})
 
-			role, err := types.NewRole("bar", types.RoleSpecV6{
+			role, err := types.NewRole("bar", types.RoleImplSpec{
 				Options: types.RoleOptions{
 					MaxSessionTTL: types.NewDuration(tt.maxSessionTTL),
 				},
@@ -1580,7 +1580,7 @@ func TestSessionTTL(t *testing.T) {
 			require.NoError(t, err)
 			user.SetRoles([]string{"bar"})
 
-			role, err := types.NewRole("bar", types.RoleSpecV6{
+			role, err := types.NewRole("bar", types.RoleImplSpec{
 				Options: types.RoleOptions{
 					MaxSessionTTL: types.NewDuration(tt.maxSessionTTL),
 				},

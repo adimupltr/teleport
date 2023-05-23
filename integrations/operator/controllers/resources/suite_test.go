@@ -43,7 +43,7 @@ func fastEventually(t *testing.T, condition func() bool) { testlib.FastEventuall
 
 func teleportCreateDummyRole(ctx context.Context, roleName string, tClient *client.Client) error {
 	// The role is created in Teleport
-	tRole, err := types.NewRole(roleName, types.RoleSpecV6{
+	tRole, err := types.NewRole(roleName, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins: []string{"a", "b"},
 		},

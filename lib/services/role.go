@@ -106,14 +106,14 @@ func RoleNameForCertAuthority(name string) string {
 // NewImplicitRole is the default implicit role that gets added to all
 // RoleSets.
 func NewImplicitRole() types.Role {
-	return &types.RoleV6{
+	return &types.RoleImpl{
 		Kind:    types.KindRole,
 		Version: types.V3,
 		Metadata: types.Metadata{
 			Name:      constants.DefaultImplicitRole,
 			Namespace: defaults.Namespace,
 		},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Options: types.RoleOptions{
 				MaxSessionTTL: types.MaxDuration(),
 				// Explicitly disable options that default to true, otherwise the option
@@ -135,7 +135,7 @@ func NewImplicitRole() types.Role {
 //
 // Used in tests only.
 func RoleForUser(u types.User) types.Role {
-	role, _ := types.NewRole(RoleNameForUser(u.GetName()), types.RoleSpecV6{
+	role, _ := types.NewRole(RoleNameForUser(u.GetName()), types.RoleImplSpec{
 		Options: types.RoleOptions{
 			CertificateFormat: constants.CertificateFormatStandard,
 			MaxSessionTTL:     types.NewDuration(defaults.MaxCertDuration),
@@ -185,7 +185,7 @@ func RoleForUser(u types.User) types.Role {
 
 // RoleForCertAuthority creates role using types.CertAuthority.
 func RoleForCertAuthority(ca types.CertAuthority) types.Role {
-	role, _ := types.NewRole(RoleNameForCertAuthority(ca.GetClusterName()), types.RoleSpecV6{
+	role, _ := types.NewRole(RoleNameForCertAuthority(ca.GetClusterName()), types.RoleImplSpec{
 		Options: types.RoleOptions{
 			MaxSessionTTL: types.NewDuration(defaults.MaxCertDuration),
 		},
@@ -716,13 +716,13 @@ type HostUsersInfo struct {
 }
 
 // RoleFromSpec returns new Role created from spec
-func RoleFromSpec(name string, spec types.RoleSpecV6) (types.Role, error) {
+func RoleFromSpec(name string, spec types.RoleImplSpec) (types.Role, error) {
 	role, err := types.NewRole(name, spec)
 	return role, trace.Wrap(err)
 }
 
 // RoleSetFromSpec returns a new RoleSet from spec
-func RoleSetFromSpec(name string, spec types.RoleSpecV6) (RoleSet, error) {
+func RoleSetFromSpec(name string, spec types.RoleImplSpec) (RoleSet, error) {
 	role, err := RoleFromSpec(name, spec)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -3226,7 +3226,7 @@ func UnmarshalRole(bytes []byte, opts ...MarshalOption) (types.Role, error) {
 		// V4 roles are identical to V3 except for their defaults
 		fallthrough
 	case types.V3:
-		var role types.RoleV6
+		var role types.RoleImpl
 		if err := utils.FastUnmarshal(bytes, &role); err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
@@ -3259,7 +3259,7 @@ func MarshalRole(role types.Role, opts ...MarshalOption) ([]byte, error) {
 	}
 
 	switch role := role.(type) {
-	case *types.RoleV6:
+	case *types.RoleImpl:
 		if !cfg.PreserveResourceID {
 			// avoid modifying the original object
 			// to prevent unexpected data races

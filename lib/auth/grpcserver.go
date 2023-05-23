@@ -763,7 +763,7 @@ func (g *GRPCServer) GetCurrentUserRoles(_ *emptypb.Empty, stream proto.AuthServ
 		return trace.Wrap(err)
 	}
 	for _, role := range roles {
-		v6, ok := role.(*types.RoleV6)
+		v6, ok := role.(*types.RoleImpl)
 		if !ok {
 			log.Warnf("expected type RoleV6, got %T for role %q", role, role.GetName())
 			return trace.Errorf("encountered unexpected role type")
@@ -1971,7 +1971,7 @@ func (g *GRPCServer) DeleteAllKubernetesServers(ctx context.Context, req *proto.
 }
 
 // GetRole retrieves a role by name.
-func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleV6, error) {
+func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleImpl, error) {
 	auth, err := g.authenticate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1980,7 +1980,7 @@ func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*t
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roleV6, ok := role.(*types.RoleV6)
+	roleV6, ok := role.(*types.RoleImpl)
 	if !ok {
 		return nil, trace.Errorf("encountered unexpected role type: %T", role)
 	}
@@ -1998,9 +1998,9 @@ func (g *GRPCServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.Get
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rolesV6 []*types.RoleV6
+	var rolesV6 []*types.RoleImpl
 	for _, r := range roles {
-		role, ok := r.(*types.RoleV6)
+		role, ok := r.(*types.RoleImpl)
 		if !ok {
 			return nil, trace.BadParameter("unexpected type %T", r)
 		}
@@ -2012,7 +2012,7 @@ func (g *GRPCServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.Get
 }
 
 // UpsertRole upserts a role.
-func (g *GRPCServer) UpsertRole(ctx context.Context, role *types.RoleV6) (*emptypb.Empty, error) {
+func (g *GRPCServer) UpsertRole(ctx context.Context, role *types.RoleImpl) (*emptypb.Empty, error) {
 	auth, err := g.authenticate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)

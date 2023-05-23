@@ -2081,7 +2081,7 @@ func TestIsMFARequired_NodeMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a fake user with per session mfa required for all nodes.
-	role, err := CreateRole(ctx, srv.Auth(), "mfa-user", types.RoleSpecV6{
+	role, err := CreateRole(ctx, srv.Auth(), "mfa-user", types.RoleImplSpec{
 		Options: types.RoleOptions{
 			RequireMFAType: types.RequireMFAType_SESSION,
 		},
@@ -3962,7 +3962,7 @@ func TestSAMLValidation(t *testing.T) {
 				require.NoError(t, err)
 			}))
 
-			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleSpecV6{Allow: tc.allow})
+			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleImplSpec{Allow: tc.allow})
 			require.NoError(t, err)
 			user, err := CreateUser(server.Auth(), "test_user", role)
 			require.NoError(t, err)

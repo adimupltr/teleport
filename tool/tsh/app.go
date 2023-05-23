@@ -264,27 +264,16 @@ Example command: tsh gcloud compute instances list
 
 // getRegisteredApp returns the registered application with the specified name.
 func getRegisteredApp(cf *CLIConf, tc *client.TeleportClient, cluster string) (app types.Application, err error) {
-	var mapping map[string][]types.Application
-
-	err = client.RetryWithRelogin(cf.Context, tc, func() error {
-		mapping, err = tc.ListAppsAllClusters(cf.Context, &proto.ListResourcesRequest{
-			Namespace:           tc.Namespace,
-			ResourceType:        types.KindAppServer,
-			PredicateExpression: fmt.Sprintf(`name == "%s"`, cf.AppName),
-		})
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	if cluster == "" {
 		cluster = tc.SiteName
 	}
-
-	apps, ok := mapping[cluster]
-	if !ok {
-		return nil, trace.NotFound("cluster %q not found", cluster)
+	apps, err := tc.ListAppsForCluster(cf.Context, cluster, &proto.ListResourcesRequest{
+		Namespace:           tc.Namespace,
+		ResourceType:        types.KindAppServer,
+		PredicateExpression: fmt.Sprintf(`name == "%s"`, cf.AppName),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	if len(apps) == 0 {
 		return nil, trace.NotFound("app %q not found, use `tsh apps ls` to see registered apps", cf.AppName)

@@ -2290,6 +2290,23 @@ func (tc *TeleportClient) ListAppServersWithFilters(ctx context.Context, customF
 	return servers, nil
 }
 
+// listAppServersWithFiltersForCluster returns a list of application servers for a given cluster.
+func (tc *TeleportClient) listAppServersWithFiltersForCluster(ctx context.Context, cluster string, customFilter *proto.ListResourcesRequest) ([]types.AppServer, error) {
+	proxyClient, err := tc.ConnectToProxy(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer proxyClient.Close()
+
+	filter := customFilter
+	if customFilter == nil {
+		filter = tc.ResourceFilter(types.KindAppServer)
+	}
+
+	servers, err := proxyClient.FindAppServersByFiltersForCluster(ctx, *filter, cluster)
+	return servers, trace.Wrap(err)
+}
+
 // listAppServersWithFiltersAllClusters returns a map of all app servers in all clusters connected to this proxy.
 func (tc *TeleportClient) listAppServersWithFiltersAllClusters(ctx context.Context, customFilter *proto.ListResourcesRequest) (map[string][]types.AppServer, error) {
 	proxyClient, err := tc.ConnectToProxy(ctx)
@@ -2336,6 +2353,19 @@ func (tc *TeleportClient) ListApps(ctx context.Context, customFilter *proto.List
 		apps = append(apps, server.GetApp())
 	}
 	return types.DeduplicateApps(apps), nil
+}
+
+// ListAppsForCluster returns all registered applications for a given cluster.
+func (tc *TeleportClient) ListAppsForCluster(ctx context.Context, cluster string, customFilter *proto.ListResourcesRequest) ([]types.Application, error) {
+	appServers, err := tc.listAppServersWithFiltersForCluster(ctx, cluster, customFilter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var apps []types.Application
+	for _, server := range appServers {
+		apps = append(apps, server.GetApp())
+	}
+	return apps, nil
 }
 
 // ListAppsAllClusters returns all registered applications across all clusters.

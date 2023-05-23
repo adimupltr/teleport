@@ -586,7 +586,7 @@ func newStandaloneTeleport(t *testing.T, clock clockwork.Clock) *standaloneBundl
 	// Prepare role and user.
 	// Both resources are bootstrapped by the Auth Server below.
 	const username = "llama"
-	role, err := types.NewRole(username, types.RoleSpecV6{
+	role, err := types.NewRole(username, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins: []string{username},
 		},

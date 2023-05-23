@@ -65,7 +65,7 @@ func EventToGRPC(in types.Event) (*proto.Event, error) {
 		out.Resource = &proto.Event_User{
 			User: r,
 		}
-	case *types.RoleV6:
+	case *types.RoleImpl:
 		out.Resource = &proto.Event_Role{
 			Role: r,
 		}

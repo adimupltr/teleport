@@ -146,14 +146,14 @@ func SignerFromAuthzContext(authzCtx *authz.Context, authClient AuthProvider, cl
 	}
 }
 
-func getRoles(ctx context.Context, authClient AuthProvider, roleNames []string) ([]*types.RoleV6, error) {
-	roles := make([]*types.RoleV6, len(roleNames))
+func getRoles(ctx context.Context, authClient AuthProvider, roleNames []string) ([]*types.RoleImpl, error) {
+	roles := make([]*types.RoleImpl, len(roleNames))
 	for i, roleName := range roleNames {
 		r, err := authClient.GetRole(ctx, roleName)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		role, ok := r.(*types.RoleV6)
+		role, ok := r.(*types.RoleImpl)
 		if !ok {
 			return nil, trace.BadParameter("unsupported role type %T", r)
 		}
@@ -166,7 +166,7 @@ func getRoles(ctx context.Context, authClient AuthProvider, roleNames []string) 
 type certParams struct {
 	clusterName  string
 	teleportUser *types.UserV2
-	roles        []*types.RoleV6
+	roles        []*types.RoleImpl
 	ttl          time.Duration
 }
 

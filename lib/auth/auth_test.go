@@ -1039,7 +1039,7 @@ func TestSAMLConnectorCRUDEventsEmitted(t *testing.T) {
 	require.NoError(t, err)
 
 	// SAML connector validation requires the roles in mappings exist.
-	role, err := types.NewRole("dummy", types.RoleSpecV6{})
+	role, err := types.NewRole("dummy", types.RoleImplSpec{})
 	require.NoError(t, err)
 	err = s.a.CreateRole(ctx, role)
 	require.NoError(t, err)
@@ -1902,7 +1902,7 @@ func TestGenerateOpenSSHCert(t *testing.T) {
 
 	user, ok := u.(*types.UserV2)
 	require.True(t, ok)
-	role, ok := r.(*types.RoleV6)
+	role, ok := r.(*types.RoleImpl)
 	require.True(t, ok)
 
 	priv, err := native.GeneratePrivateKey()
@@ -1910,7 +1910,7 @@ func TestGenerateOpenSSHCert(t *testing.T) {
 
 	reply, err := p.a.GenerateOpenSSHCert(ctx, &proto.OpenSSHCertRequest{
 		User:      user,
-		Roles:     []*types.RoleV6{role},
+		Roles:     []*types.RoleImpl{role},
 		PublicKey: priv.MarshalSSHPublicKey(),
 		TTL:       proto.Duration(time.Hour),
 		Cluster:   p.clusterName.GetClusterName(),

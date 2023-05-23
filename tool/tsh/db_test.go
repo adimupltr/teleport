@@ -765,9 +765,9 @@ func TestGetDefaultDBNameAndUser(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			role := &types.RoleV6{
+			role := &types.RoleImpl{
 				Metadata: types.Metadata{Name: "test-role", Namespace: apidefaults.Namespace},
-				Spec: types.RoleSpecV6{
+				Spec: types.RoleImplSpec{
 					Allow: types.RoleConditions{
 						Namespaces:     []string{apidefaults.Namespace},
 						DatabaseLabels: types.Labels{"*": []string{"*"}},

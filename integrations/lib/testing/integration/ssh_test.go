@@ -44,7 +44,7 @@ func (s *IntegrationSSHSuite) TestSSH() {
 	me, err := user.Current()
 	require.NoError(t, err)
 	var bootstrap Bootstrap
-	role, err := bootstrap.AddRole(me.Username, types.RoleSpecV6{Allow: types.RoleConditions{
+	role, err := bootstrap.AddRole(me.Username, types.RoleImplSpec{Allow: types.RoleConditions{
 		Logins:     []string{me.Username},
 		NodeLabels: types.Labels{types.Wildcard: utils.Strings{types.Wildcard}},
 	}})

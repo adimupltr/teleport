@@ -32,7 +32,7 @@ func TestAccessCheckerKubeResources(t *testing.T) {
 	devKubeCluster := newKubeCluster(t, "dev", map[string]string{"env": "dev"})
 	prodKubeCluster := newKubeCluster(t, "prod", map[string]string{"env": "prod"})
 	roleSet := NewRoleSet(
-		newRole(func(rv *types.RoleV6) {
+		newRole(func(rv *types.RoleImpl) {
 			rv.SetName("dev")
 			rv.SetKubeResources(types.Allow, []types.KubernetesResource{
 				{
@@ -44,7 +44,7 @@ func TestAccessCheckerKubeResources(t *testing.T) {
 			rv.SetKubernetesLabels(types.Allow, kubeDevLabels)
 			rv.SetKubeUsers(types.Allow, kubeUsers)
 		}),
-		newRole(func(rv *types.RoleV6) {
+		newRole(func(rv *types.RoleImpl) {
 			rv.SetName("any")
 			rv.SetKubeResources(types.Allow, []types.KubernetesResource{
 				{

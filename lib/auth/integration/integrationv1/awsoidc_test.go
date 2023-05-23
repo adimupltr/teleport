@@ -37,7 +37,7 @@ func TestGenerateAWSOIDCToken(t *testing.T) {
 	ca := newCertAuthority(t, types.HostCA, clusterName)
 	ctx, localClient, resourceSvc := initSvc(t, types.KindIntegration, ca, clusterName)
 
-	ctx = authorizerForDummyUser(t, ctx, types.RoleSpecV6{
+	ctx = authorizerForDummyUser(t, ctx, types.RoleImplSpec{
 		Allow: types.RoleConditions{Rules: []types.Rule{
 			{Resources: []string{types.KindIntegration}, Verbs: []string{types.VerbUse}},
 		}},

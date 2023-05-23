@@ -59,7 +59,7 @@ func TestIntegrationCRUD(t *testing.T) {
 
 	tt := []struct {
 		Name         string
-		Role         types.RoleSpecV6
+		Role         types.RoleImplSpec
 		Setup        func(t *testing.T, igName string)
 		Test         func(ctx context.Context, resourceSvc *Service, igName string) error
 		ErrAssertion func(error) bool
@@ -67,7 +67,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Read
 		{
 			Name: "allowed read access to integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbRead},
@@ -87,7 +87,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "no access to read integrations",
-			Role: types.RoleSpecV6{},
+			Role: types.RoleImplSpec{},
 			Test: func(ctx context.Context, resourceSvc *Service, igName string) error {
 				_, err := resourceSvc.GetIntegration(ctx, &integrationpb.GetIntegrationRequest{
 					Name: igName,
@@ -98,7 +98,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "denied access to read integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Deny: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbRead},
@@ -116,7 +116,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// List
 		{
 			Name: "allowed list access to integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbList, types.VerbRead},
@@ -139,7 +139,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "no list access to integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbCreate},
@@ -158,7 +158,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Create
 		{
 			Name: "no access to create integrations",
-			Role: types.RoleSpecV6{},
+			Role: types.RoleImplSpec{},
 			Test: func(ctx context.Context, resourceSvc *Service, igName string) error {
 				ig := sampleIntegrationFn(t, igName)
 				_, err := resourceSvc.CreateIntegration(ctx, &integrationpb.CreateIntegrationRequest{Integration: ig.(*types.IntegrationV1)})
@@ -168,7 +168,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "access to create integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbCreate},
@@ -185,7 +185,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Update
 		{
 			Name: "no access to update integration",
-			Role: types.RoleSpecV6{},
+			Role: types.RoleImplSpec{},
 			Test: func(ctx context.Context, resourceSvc *Service, igName string) error {
 				ig := sampleIntegrationFn(t, igName)
 				_, err := resourceSvc.UpdateIntegration(ctx, &integrationpb.UpdateIntegrationRequest{Integration: ig.(*types.IntegrationV1)})
@@ -195,7 +195,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "access to update integration",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbUpdate},
@@ -216,7 +216,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Delete
 		{
 			Name: "no access to delete integration",
-			Role: types.RoleSpecV6{},
+			Role: types.RoleImplSpec{},
 			Test: func(ctx context.Context, resourceSvc *Service, igName string) error {
 				_, err := resourceSvc.DeleteIntegration(ctx, &integrationpb.DeleteIntegrationRequest{Name: "x"})
 				return err
@@ -225,7 +225,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "access to delete integration",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbDelete},
@@ -245,7 +245,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Delete all
 		{
 			Name: "remove all integrations fails when no access",
-			Role: types.RoleSpecV6{},
+			Role: types.RoleImplSpec{},
 			Test: func(ctx context.Context, resourceSvc *Service, igName string) error {
 				_, err := resourceSvc.DeleteAllIntegrations(ctx, &integrationpb.DeleteAllIntegrationsRequest{})
 				return err
@@ -254,7 +254,7 @@ func TestIntegrationCRUD(t *testing.T) {
 		},
 		{
 			Name: "remove all integrations",
-			Role: types.RoleSpecV6{
+			Role: types.RoleImplSpec{
 				Allow: types.RoleConditions{Rules: []types.Rule{{
 					Resources: []string{types.KindIntegration},
 					Verbs:     []string{types.VerbDelete},
@@ -290,7 +290,7 @@ func TestIntegrationCRUD(t *testing.T) {
 	}
 }
 
-func authorizerForDummyUser(t *testing.T, ctx context.Context, roleSpec types.RoleSpecV6, localClient localClient) context.Context {
+func authorizerForDummyUser(t *testing.T, ctx context.Context, roleSpec types.RoleImplSpec, localClient localClient) context.Context {
 	// Create role
 	roleName := "role-" + uuid.NewString()
 	role, err := types.NewRole(roleName, roleSpec)

@@ -188,11 +188,11 @@ func SetUpSuiteWithConfig(t *testing.T, config suiteConfig) *Suite {
 	}
 
 	// Grant the user's role access to the application label "bar: baz".
-	s.role = &types.RoleV6{
+	s.role = &types.RoleImpl{
 		Metadata: types.Metadata{
 			Name: "foo",
 		},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				AppLabels:   roleAppLabels,
 				AWSRoleARNs: []string{"arn:aws:iam::123456789012:role/readonly"},

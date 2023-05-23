@@ -1988,13 +1988,13 @@ func TestIsMFARequiredUnauthorized(t *testing.T) {
 func TestRoleVersions(t *testing.T) {
 	srv := newTestTLSServer(t)
 
-	role := &types.RoleV6{
+	role := &types.RoleImpl{
 		Kind:    types.KindRole,
 		Version: types.V6,
 		Metadata: types.Metadata{
 			Name: "test_role",
 		},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Rules: []types.Rule{
 					types.NewRule(types.KindRole, services.RO()),
@@ -2117,7 +2117,7 @@ func TestIsMFARequired_NodeMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a fake user with per session mfa required for all nodes.
-	role, err := CreateRole(ctx, srv.Auth(), "mfa-user", types.RoleSpecV6{
+	role, err := CreateRole(ctx, srv.Auth(), "mfa-user", types.RoleImplSpec{
 		Options: types.RoleOptions{
 			RequireMFAType: types.RequireMFAType_SESSION,
 		},
@@ -3814,7 +3814,7 @@ func TestSAMLValidation(t *testing.T) {
 				require.NoError(t, err)
 			}))
 
-			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleSpecV6{Allow: tc.allow})
+			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleImplSpec{Allow: tc.allow})
 			require.NoError(t, err)
 			user, err := CreateUser(server.Auth(), "test_user", role)
 			require.NoError(t, err)

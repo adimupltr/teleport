@@ -100,7 +100,7 @@ func defaultTeleportServiceConfig(t *testing.T) (*helpers.TeleInstance, string) 
 
 	roleName := ValidRandomResourceName("role-")
 	unrestricted := []string{"list", "create", "read", "update", "delete"}
-	role, err := types.NewRole(roleName, types.RoleSpecV6{
+	role, err := types.NewRole(roleName, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule("role", unrestricted),

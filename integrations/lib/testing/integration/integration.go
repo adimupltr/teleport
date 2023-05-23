@@ -419,7 +419,7 @@ func (integration *Integration) NewSignedClient(ctx context.Context, auth Auth, 
 
 func (integration *Integration) MakeAdmin(ctx context.Context, auth *AuthService, userName string) (*Client, error) {
 	var bootstrap Bootstrap
-	if _, err := bootstrap.AddRole(IntegrationAdminRole, types.RoleSpecV6{
+	if _, err := bootstrap.AddRole(IntegrationAdminRole, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			NodeLabels: types.Labels{types.Wildcard: utils.Strings{types.Wildcard}},
 			Rules: []types.Rule{

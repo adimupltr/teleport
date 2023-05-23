@@ -296,7 +296,7 @@ func withLeafClusterListeners(fn helpers.InstanceListenerSetupFunc) proxySuiteOp
 }
 
 func newRole(t *testing.T, roleName string, username string) types.Role {
-	role, err := types.NewRole(roleName, types.RoleSpecV6{
+	role, err := types.NewRole(roleName, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:     []string{username},
 			NodeLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},

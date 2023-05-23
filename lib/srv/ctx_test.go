@@ -61,7 +61,7 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "node disallowed",
 			nodeAllowFileCopying: false,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
 				},
 			},
@@ -71,7 +71,7 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "node allowed",
 			nodeAllowFileCopying: true,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
 				},
 			},
@@ -81,9 +81,9 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "role disallowed",
 			nodeAllowFileCopying: true,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Options: types.RoleOptions{
 							SSHFileCopy: types.NewBoolOption(false),
 						},
@@ -96,9 +96,9 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "role allowed",
 			nodeAllowFileCopying: true,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Options: types.RoleOptions{
 							SSHFileCopy: types.NewBoolOption(true),
 						},
@@ -111,17 +111,17 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "conflicting roles",
 			nodeAllowFileCopying: true,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Options: types.RoleOptions{
 							SSHFileCopy: types.NewBoolOption(true),
 						},
 					},
 				},
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Options: types.RoleOptions{
 							SSHFileCopy: types.NewBoolOption(false),
 						},
@@ -134,9 +134,9 @@ func TestCheckSFTPAllowed(t *testing.T) {
 			name:                 "moderated sessions enforced",
 			nodeAllowFileCopying: true,
 			roles: []types.Role{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Kind: types.KindNode,
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Allow: types.RoleConditions{
 							RequireSessionJoin: []*types.SessionRequirePolicy{
 								{

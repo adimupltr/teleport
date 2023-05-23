@@ -689,7 +689,7 @@ func TestAccessRequestDowngrade(t *testing.T) {
 
 type mockRoleServer struct {
 	*mockServer
-	roles map[string]*types.RoleV6
+	roles map[string]*types.RoleImpl
 }
 
 func newMockRoleServer() *mockRoleServer {
@@ -698,7 +698,7 @@ func newMockRoleServer() *mockRoleServer {
 			grpc:                           grpc.NewServer(),
 			UnimplementedAuthServiceServer: &proto.UnimplementedAuthServiceServer{},
 		},
-		make(map[string]*types.RoleV6),
+		make(map[string]*types.RoleImpl),
 	}
 	proto.RegisterAuthServiceServer(m.grpc, m)
 	return m
@@ -712,7 +712,7 @@ func startMockRoleServer(t *testing.T) string {
 	return l.Addr().String()
 }
 
-func (m *mockRoleServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleV6, error) {
+func (m *mockRoleServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleImpl, error) {
 	conn, ok := m.roles[req.Name]
 	if !ok {
 		return nil, trace.NotFound("not found")
@@ -721,7 +721,7 @@ func (m *mockRoleServer) GetRole(ctx context.Context, req *proto.GetRoleRequest)
 }
 
 func (m *mockRoleServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.GetRolesResponse, error) {
-	var connectors []*types.RoleV6
+	var connectors []*types.RoleImpl
 	for _, conn := range m.roles {
 		connectors = append(connectors, conn)
 	}
@@ -730,7 +730,7 @@ func (m *mockRoleServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto
 	}, nil
 }
 
-func (m *mockRoleServer) UpsertRole(ctx context.Context, role *types.RoleV6) (*emptypb.Empty, error) {
+func (m *mockRoleServer) UpsertRole(ctx context.Context, role *types.RoleImpl) (*emptypb.Empty, error) {
 	m.roles[role.Metadata.Name] = role
 	return &emptypb.Empty{}, nil
 }
@@ -763,7 +763,7 @@ func TestSetRoleRequireSessionMFABackwardsCompatibility(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	role := &types.RoleV6{
+	role := &types.RoleImpl{
 		Metadata: types.Metadata{
 			Name: "one",
 		},

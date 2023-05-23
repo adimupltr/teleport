@@ -86,7 +86,7 @@ func TestDiagnoseConnectionForPostgresDatabases(t *testing.T) {
 	// Wait for the Database Server to be registered
 	waitForDatabases(t, authServer, []string{databaseResourceName})
 
-	roleWithFullAccess, err := types.NewRole("fullaccess", types.RoleSpecV6{
+	roleWithFullAccess, err := types.NewRole("fullaccess", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Namespaces:     []string{apidefaults.Namespace},
 			DatabaseLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},

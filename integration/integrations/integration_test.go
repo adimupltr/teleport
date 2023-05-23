@@ -45,7 +45,7 @@ func TestIntegrationCRUD(t *testing.T) {
 	proxyAddr, err := proxyProcess.ProxyWebAddr()
 	require.NoError(t, err)
 
-	roleWithFullAccess, err := types.NewRole("fullaccess", types.RoleSpecV6{
+	roleWithFullAccess, err := types.NewRole("fullaccess", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Namespaces: []string{apidefaults.Namespace},
 			Rules: []types.Rule{

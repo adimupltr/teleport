@@ -184,9 +184,9 @@ func TestSession_newRecorder(t *testing.T) {
 					AccessChecker: services.NewAccessCheckerWithRoleSet(&services.AccessInfo{
 						Roles: []string{"dev"},
 					}, "test", services.RoleSet{
-						&types.RoleV6{
+						&types.RoleImpl{
 							Metadata: types.Metadata{Name: "dev", Namespace: apidefaults.Namespace},
-							Spec: types.RoleSpecV6{
+							Spec: types.RoleImplSpec{
 								Options: types.RoleOptions{
 									RecordSession: &types.RecordSession{
 										SSH: constants.SessionRecordingModeStrict,
@@ -223,9 +223,9 @@ func TestSession_newRecorder(t *testing.T) {
 					AccessChecker: services.NewAccessCheckerWithRoleSet(&services.AccessInfo{
 						Roles: []string{"dev"},
 					}, "test", services.RoleSet{
-						&types.RoleV6{
+						&types.RoleImpl{
 							Metadata: types.Metadata{Name: "dev", Namespace: apidefaults.Namespace},
-							Spec: types.RoleSpecV6{
+							Spec: types.RoleImplSpec{
 								Options: types.RoleOptions{
 									RecordSession: &types.RecordSession{
 										SSH: constants.SessionRecordingModeBestEffort,
@@ -370,7 +370,7 @@ func TestStopUnstarted(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { reg.Close() })
 
-	role, err := types.NewRole("access", types.RoleSpecV6{
+	role, err := types.NewRole("access", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			RequireSessionJoin: []*types.SessionRequirePolicy{{
 				Name:   "foo",
@@ -519,9 +519,9 @@ func TestSessionRecordingModes(t *testing.T) {
 			t.Cleanup(func() { reg.Close() })
 
 			sess, sessCh := testOpenSession(t, reg, services.RoleSet{
-				&types.RoleV6{
+				&types.RoleImpl{
 					Metadata: types.Metadata{Name: "dev", Namespace: apidefaults.Namespace},
-					Spec: types.RoleSpecV6{
+					Spec: types.RoleImplSpec{
 						Options: types.RoleOptions{
 							RecordSession: &types.RecordSession{
 								SSH: tt.sessionRecordingMode,

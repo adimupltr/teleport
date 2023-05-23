@@ -206,7 +206,7 @@ func initSvc(t *testing.T, kind string) (context.Context, *Service) {
 	})
 	require.NoError(t, err)
 
-	role, err := types.NewRole("import-rules", types.RoleSpecV6{
+	role, err := types.NewRole("import-rules", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				{

@@ -58,7 +58,7 @@ func TestDatabaseServiceHeartbeat(t *testing.T) {
 		URI:      "127.0.0.1:0",
 	})
 
-	roleWithRODBService, err := types.NewRole("ro_dbservices", types.RoleSpecV6{
+	roleWithRODBService, err := types.NewRole("ro_dbservices", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			DatabaseServiceLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
 			Rules: []types.Rule{

@@ -132,7 +132,7 @@ func makeUserWithAWSRole(t *testing.T) (types.User, types.Role) {
 	alice, err := types.NewUser("alice@example.com")
 	require.NoError(t, err)
 
-	awsRole, err := types.NewRole("aws", types.RoleSpecV6{
+	awsRole, err := types.NewRole("aws", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			AppLabels: types.Labels{
 				types.Wildcard: apiutils.Strings{types.Wildcard},

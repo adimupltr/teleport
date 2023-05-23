@@ -2704,7 +2704,7 @@ func TestGetClusterDetails(t *testing.T) {
 func TestTokenGeneration(t *testing.T) {
 	const username = "test-user@example.com"
 	// Users should be able to create Tokens even if they can't update them
-	roleTokenCRD, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleTokenCRD, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindToken,
@@ -2828,7 +2828,7 @@ func TestInstallDatabaseScriptGeneration(t *testing.T) {
 	const username = "test-user@example.com"
 
 	// Users should be able to create Tokens even if they can't update them
-	roleTokenCRD, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleTokenCRD, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindToken,
@@ -2971,7 +2971,7 @@ func TestSignMTLS_failsAccessDenied(t *testing.T) {
 	clusterName := env.server.ClusterName()
 	username := "test-user@example.com"
 
-	roleUserUpdate, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleUserUpdate, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindUser, []string{types.VerbUpdate}),
@@ -3460,9 +3460,9 @@ func TestClusterDatabasesGet(t *testing.T) {
 	}})
 
 	// Test with a role that defines database names and users.
-	extraRole := &types.RoleV6{
+	extraRole := &types.RoleImpl{
 		Metadata: types.Metadata{Name: "extra-role"},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				DatabaseNames: []string{"name1"},
 				DatabaseUsers: []string{"user1"},
@@ -3543,7 +3543,7 @@ func TestClusterDatabaseGet(t *testing.T) {
 			userRoles: func(tt *testing.T) []types.Role {
 				role, err := types.NewRole(
 					"myrole",
-					types.RoleSpecV6{
+					types.RoleImplSpec{
 						Allow: types.RoleConditions{
 							DatabaseLabels: types.Labels{
 								"env": apiutils.Strings{"staging"},
@@ -3565,7 +3565,7 @@ func TestClusterDatabaseGet(t *testing.T) {
 			userRoles: func(tt *testing.T) []types.Role {
 				roleWithDBName, err := types.NewRole(
 					"myroleWithDBName",
-					types.RoleSpecV6{
+					types.RoleImplSpec{
 						Allow: types.RoleConditions{
 							DatabaseLabels: types.Labels{
 								"env": apiutils.Strings{"prod"},
@@ -3591,7 +3591,7 @@ func TestClusterDatabaseGet(t *testing.T) {
 			userRoles: func(tt *testing.T) []types.Role {
 				roleWithDBName, err := types.NewRole(
 					"myroleWithDBName",
-					types.RoleSpecV6{
+					types.RoleImplSpec{
 						Allow: types.RoleConditions{
 							DatabaseLabels: types.Labels{
 								"env": apiutils.Strings{"prod"},
@@ -3604,7 +3604,7 @@ func TestClusterDatabaseGet(t *testing.T) {
 
 				roleWithDBUser, err := types.NewRole(
 					"myroleWithDBUser",
-					types.RoleSpecV6{
+					types.RoleImplSpec{
 						Allow: types.RoleConditions{
 							DatabaseLabels: types.Labels{
 								"env": apiutils.Strings{"prod"},
@@ -3685,9 +3685,9 @@ func TestClusterKubesGet(t *testing.T) {
 
 	proxy := env.proxies[0]
 
-	extraRole := &types.RoleV6{
+	extraRole := &types.RoleImpl{
 		Metadata: types.Metadata{Name: "extra-role"},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				KubeUsers:  []string{"user1"},
 				KubeGroups: []string{"group1"},
@@ -3807,7 +3807,7 @@ func TestClusterKubePodsGet(t *testing.T) {
 	kubeClusterName := "kube_cluster"
 
 	roleWithFullAccess := func(username string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces:       []string{apidefaults.Namespace},
 				KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -5318,7 +5318,7 @@ func TestDesktopActive(t *testing.T) {
 	env := newWebPack(t, 1)
 	ctx := context.Background()
 
-	role, err := types.NewRole("admin", types.RoleSpecV6{
+	role, err := types.NewRole("admin", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			WindowsDesktopLabels: types.Labels{"environment": []string{"dev"}},
 		},
@@ -5400,7 +5400,7 @@ func TestListConnectionsDiagnostic(t *testing.T) {
 	ctx := context.Background()
 	username := "someuser"
 	diagName := "diag1"
-	roleROConnectionDiagnostics, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleROConnectionDiagnostics, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindConnectionDiagnostic,
@@ -5474,7 +5474,7 @@ func TestDiagnoseSSHConnection(t *testing.T) {
 	require.NotEmpty(t, osUsername)
 
 	roleWithFullAccess := func(username string, login string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces: []string{apidefaults.Namespace},
 				NodeLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -5490,7 +5490,7 @@ func TestDiagnoseSSHConnection(t *testing.T) {
 	require.NotNil(t, roleWithFullAccess)
 
 	rolesWithoutAccessToNode := func(username string, login string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces: []string{apidefaults.Namespace},
 				NodeLabels: types.Labels{"forbidden": []string{"yes"}},
@@ -5506,7 +5506,7 @@ func TestDiagnoseSSHConnection(t *testing.T) {
 	require.NotNil(t, rolesWithoutAccessToNode)
 
 	roleWithPrincipal := func(username string, principal string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces: []string{apidefaults.Namespace},
 				NodeLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -5766,7 +5766,7 @@ func TestDiagnoseKubeConnection(t *testing.T) {
 	)
 
 	roleWithFullAccess := func(username string, kubeUsers, kubeGroups []string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces:       []string{apidefaults.Namespace},
 				KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -5790,7 +5790,7 @@ func TestDiagnoseKubeConnection(t *testing.T) {
 	require.NotNil(t, roleWithFullAccess)
 
 	rolesWithoutAccessToKubeCluster := func(username string, kubeUsers, kubeGroups []string) []types.Role {
-		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+		ret, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces:       []string{apidefaults.Namespace},
 				KubernetesLabels: types.Labels{"forbidden": []string{"yes"}},
@@ -6249,7 +6249,7 @@ func TestCreateDatabase(t *testing.T) {
 
 	ctx := context.Background()
 	username := "someuser"
-	roleCreateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleCreateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			DatabaseNames: []string{"name1"},
 			DatabaseUsers: []string{"user1"},
@@ -6431,7 +6431,7 @@ func TestUpdateDatabase_Errors(t *testing.T) {
 	ctx := context.Background()
 	databaseName := "somedb"
 	username := "someuser"
-	roleCreateUpdateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleCreateUpdateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindDatabase,
@@ -6534,7 +6534,7 @@ func TestUpdateDatabase_NonErrors(t *testing.T) {
 	ctx := context.Background()
 	databaseName := "somedb"
 	username := "someuser"
-	roleCreateUpdateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleSpecV6{
+	roleCreateUpdateDatabase, err := types.NewRole(services.RoleNameForUser(username), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				types.NewRule(types.KindDatabase,
@@ -7566,7 +7566,7 @@ func TestUserContextWithAccessRequest(t *testing.T) {
 	requestableRolename := "requestable-role"
 
 	// Create user's base role with the ability to request the requestable role.
-	baseRole, err := types.NewRole(baseRoleName, types.RoleSpecV6{
+	baseRole, err := types.NewRole(baseRoleName, types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Request: &types.AccessRequestConditions{
 				Roles: []string{requestableRolename},
@@ -7579,7 +7579,7 @@ func TestUserContextWithAccessRequest(t *testing.T) {
 	pack := proxy.authPack(t, username, []types.Role{baseRole})
 
 	// Create the requestable role.
-	requestableRole, err := types.NewRole(requestableRolename, types.RoleSpecV6{})
+	requestableRole, err := types.NewRole(requestableRolename, types.RoleImplSpec{})
 	require.NoError(t, err)
 	err = env.server.Auth().UpsertRole(ctx, requestableRole)
 	require.NoError(t, err)

@@ -415,7 +415,7 @@ func (rc *ResourceCommand) createRole(ctx context.Context, client auth.ClientI, 
 // warnAboutKubernetesResources warns about kubernetes resources
 // if kubernetes_labels are set but kubernetes_resources are not.
 func warnAboutKubernetesResources(logger utils.Logger, r types.Role) {
-	role, ok := r.(*types.RoleV6)
+	role, ok := r.(*types.RoleImpl)
 	// only warn about kubernetes resources for v6 roles
 	if !ok || role.Version != types.V6 {
 		return

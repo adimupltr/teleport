@@ -460,7 +460,7 @@ func TestAuthorizeWithVerbs(t *testing.T) {
 	require.NoError(t, err)
 	accessService := local.NewAccessService(backend)
 
-	role, err := types.NewRole("test", types.RoleSpecV6{
+	role, err := types.NewRole("test", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Rules: []types.Rule{
 				{

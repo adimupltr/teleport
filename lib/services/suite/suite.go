@@ -696,14 +696,14 @@ func (s *ServicesTestSuite) RolesCRUD(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(out), 0)
 
-	role := types.RoleV6{
+	role := types.RoleImpl{
 		Kind:    types.KindRole,
 		Version: types.V6,
 		Metadata: types.Metadata{
 			Name:      "role1",
 			Namespace: apidefaults.Namespace,
 		},
-		Spec: types.RoleSpecV6{
+		Spec: types.RoleImplSpec{
 			Options: types.RoleOptions{
 				MaxSessionTTL:     types.Duration(time.Hour),
 				PortForwarding:    types.NewBoolOption(true),
@@ -1471,7 +1471,7 @@ func (s *ServicesTestSuite) Events(t *testing.T) {
 				Kind: types.KindRole,
 			},
 			crud: func(context.Context) types.Resource {
-				role, err := types.NewRole("role1", types.RoleSpecV6{
+				role, err := types.NewRole("role1", types.RoleImplSpec{
 					Options: types.RoleOptions{
 						MaxSessionTTL: types.Duration(time.Hour),
 					},

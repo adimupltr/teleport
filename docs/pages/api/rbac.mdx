@@ -547,7 +547,7 @@ func createTeleportRoleFromClusterRoleBinding(teleport *client.Client, k types.K
 		return nil
 	}
 
-	role := types.RoleV6{}
+	role := types.RoleImpl{}
 	role.SetMetadata(types.Metadata{
 		Name: k.GetName() + "-" + r.RoleRef.Name + "-" + "cluster",
 	})
@@ -608,7 +608,7 @@ according to the following attributes:
 In our demo application, this function will create a Teleport role called
 `minikube-pod-ops-cluster`.
 
-The rest of the function assigns fields to a `types.RoleV6`, the Teleport API
+The rest of the function assigns fields to a `types.RoleImpl`, the Teleport API
 client's role type, based on the cluster role binding:
 
 |Role field|Purpose|How we assign it|
@@ -628,7 +628,7 @@ func createTeleportRoleFromRoleBinding(teleport *client.Client, k types.KubeClus
 		return nil
 	}
 
-	role := types.RoleV6{}
+	role := types.RoleImpl{}
 	role.SetMetadata(types.Metadata{
 		Name: k.GetName() + "-" + r.RoleRef.Name + "-" + r.Namespace,
 	})

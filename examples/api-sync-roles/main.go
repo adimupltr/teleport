@@ -70,7 +70,7 @@ func createTeleportRoleFromClusterRoleBinding(teleport *client.Client, k types.K
 		return nil
 	}
 
-	role := types.RoleV6{}
+	role := types.RoleImpl{}
 	role.SetMetadata(types.Metadata{
 		Name: k.GetName() + "-" + r.RoleRef.Name + "-" + "cluster",
 	})
@@ -118,7 +118,7 @@ func createTeleportRoleFromRoleBinding(teleport *client.Client, k types.KubeClus
 		return nil
 	}
 
-	role := types.RoleV6{}
+	role := types.RoleImpl{}
 	role.SetMetadata(types.Metadata{
 		Name: k.GetName() + "-" + r.RoleRef.Name + "-" + r.Namespace,
 	})

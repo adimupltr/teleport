@@ -1497,3 +1497,9 @@ func validateKubeResources(kubeResources []KubernetesResource) error {
 func (k *KubernetesResource) ClusterResource() string {
 	return k.Namespace + "/" + k.Name
 }
+
+// TODO(espadolini): remove after updating teleport.e
+type (
+	RoleV6     = RoleImpl
+	RoleSpecV6 = RoleImplSpec
+)

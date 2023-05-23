@@ -758,12 +758,12 @@ func (g *GRPCServer) GetCurrentUserRoles(_ *emptypb.Empty, stream proto.AuthServ
 		return trace.Wrap(err)
 	}
 	for _, role := range roles {
-		v6, ok := role.(*types.RoleImpl)
+		roleImpl, ok := role.(*types.RoleImpl)
 		if !ok {
-			log.Warnf("expected type RoleV6, got %T for role %q", role, role.GetName())
+			log.Warnf("expected type %T, got %T for role %q", roleImpl, role, role.GetName())
 			return trace.Errorf("encountered unexpected role type")
 		}
-		if err := stream.Send(v6); err != nil {
+		if err := stream.Send(roleImpl); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -2123,11 +2123,11 @@ func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*t
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roleV6, ok := role.(*types.RoleImpl)
+	roleImpl, ok := role.(*types.RoleImpl)
 	if !ok {
 		return nil, trace.Errorf("encountered unexpected role type: %T", role)
 	}
-	downgraded, err := maybeDowngradeRole(ctx, roleV6)
+	downgraded, err := maybeDowngradeRole(ctx, roleImpl)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

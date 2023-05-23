@@ -166,6 +166,7 @@ func TestAppLoginLeaf(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 		require.Equal(t, 1, len(resp.Cookies()))
 		require.Equal(t, "dumper.session.cookie", resp.Cookies()[0].Name)
+		_ = resp.Body.Close()
 	}
 
 	tests := []struct{ name, loginCluster, appCluster string }{
